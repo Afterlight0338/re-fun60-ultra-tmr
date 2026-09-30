@@ -1,0 +1,16 @@
+# build output
+fw/build/
+flasher/target/
+__pycache__/
+# Artery's BSP, fetched by `make -C fw vendor`
+fw/vendor/
+# written by driver/serve.sh
+driver/index.html
+
+# MonsGeek's stock firmware: not ours to publish, `ry-flash --fetch 2307` downloads it
+stock/
+# local reverse-engineering workspace, holds decompiled stock code
+re/
+
+# chatter_test.py writes its logs here; the published ones are in data/chatter/
+/chatter-*.csv
