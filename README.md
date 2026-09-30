@@ -3,7 +3,7 @@ This whole project and repository was written with Claude Opus 5.5 xHigh and Gem
 
 # re-fun60-ultra-tmr
 
-Open firmware and a web driver for the MonsGeek FUN60 Ultra TMR (board ID 2307), written from
+Open firmware and a web driver for the MonsGeek FUN60 Ultra TMR Tri-mode (board ID 2307), written from
 scratch after taking the stock firmware apart.
 
 Two things started this:
