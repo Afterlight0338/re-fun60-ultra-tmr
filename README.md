@@ -1,3 +1,6 @@
+# preface
+This whole project and repository was written with Claude Opus 5.5 xHigh and Gemini 3.8 Flash High. Please take your time to verify facts written by them. I am not responsible for anything wrong that happens.
+
 # re-fun60-ultra-tmr
 
 Open firmware and a web driver for the MonsGeek FUN60 Ultra TMR (board ID 2307), written from
