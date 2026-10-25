@@ -1,6 +1,6 @@
 /*
  * board.h - FUN60 Ultra TMR (dev_id 2307) layout, from stock firmware v306 and measurement.
- * Evidence for every pin is in docs/hw-map.md; the key positions come from rawscan captures.
+ * Evidence for every pin is in README section 12; the key positions come from rawscan captures.
  */
 #ifndef BOARD_H
 #define BOARD_H

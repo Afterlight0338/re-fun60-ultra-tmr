@@ -1,6 +1,6 @@
 /*
  * leds.h - the 61 per-key RGB LEDs (WS2812-class on PA10 via SPI2 + DMA1), set up as stock v306
- * does (docs/hw-map.md). Effects are rendered by leds_frame() (pure, host-tested) and sent by
+ * does (README section 12). Effects are rendered by leds_frame() (pure, host-tested) and sent by
  * leds_task() whenever the previous frame has gone out.
  */
 #ifndef LEDS_H

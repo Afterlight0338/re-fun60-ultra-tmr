@@ -1,6 +1,6 @@
 /*
  * scan.h - board power-up and the TMR sensor matrix scan (column shift register + row mux
- * into ADC1 channel 2), mirroring stock v306 step for step. See docs/hw-map.md.
+ * into ADC1 channel 2), mirroring stock v306 step for step. See README section 12 (hardware map).
  */
 #ifndef SCAN_H
 #define SCAN_H

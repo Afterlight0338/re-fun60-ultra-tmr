@@ -1,5 +1,5 @@
 /*
- * leds.c - effects, WS2812 encoding and the SPI2/DMA1 transport. See leds.h and docs/hw-map.md.
+ * leds.c - effects, WS2812 encoding and the SPI2/DMA1 transport. See leds.h and README section 12.
  */
 #include "leds.h"
 
