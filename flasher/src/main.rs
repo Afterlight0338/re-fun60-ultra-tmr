@@ -136,7 +136,7 @@ fn refuse_unverified(a: &Args, path: &std::path::Path, dev_id: Option<u16>) -> O
             "{} is the stock image for dev {s}, but this board is dev {d}", path.display()))),
         (None, _) => Some(fail(a.json, EXIT_ERR, "unverified_image", &format!(
             "{} is not a published stock image. If it fails to enumerate or cannot re-enter the bootloader, \
-             only BOOT0 ROM-DFU recovers the board (docs/flashing.md §9). Pass --custom to flash it anyway.",
+             only BOOT0 ROM-DFU recovers the board (README section 5). Pass --custom to flash it anyway.",
             path.display()))),
     }
 }

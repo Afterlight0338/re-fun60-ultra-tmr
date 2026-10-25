@@ -163,7 +163,7 @@ impl Dev {
             "did not return to normal mode: still in the bootloader (502A), safe to flash again"
         } else {
             "the board accepted the image but never came back on USB. The bootloader now boots it on every \
-             power-up, so re-running cannot help: recover via BOOT0 ROM-DFU (docs/flashing.md §9)"
+             power-up, so re-running cannot help: recover via BOOT0 ROM-DFU (README section 5)"
         }
     }
 }
