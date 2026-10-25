@@ -1,11 +1,11 @@
-# FUN60 Ultra TMR (dev_id 2307) hardware map
+## 12. Hardware map
 
 Derived from stock firmware v306 (`stock/2307/fw_at32.bin`, SHA-256 matches the vendor manifest)
 by decompiling it with Ghidra 12 and reading the result. Every row names the stock function it
 comes from, so any of it can be re-checked. Nothing here comes from the older `firmware/` tree
 or its docs. Confirmed on the board itself where marked.
 
-## MCU and clocks
+### 12.1 MCU and clocks
 
 | Item | Value | Evidence |
 |---|---|---|
@@ -16,7 +16,7 @@ or its docs. Confirmed on the board itself where marked.
 | App | vector table 0x08005200, VTOR set by `main` @0x08014b90 (`nvic_vector_table_set(0x08000000, 0x5200)`) | main |
 | Delays | SysTick: `FUN_08013b40(n)` = n us, `FUN_08013ae4(n)` = n ms | decompile |
 
-## Board init (`FUN_080167b8`, called from main)
+### 12.2 Board init (`FUN_080167b8`, called from main)
 
 All pins are first set to analog by `FUN_08013078`. Then:
 
@@ -40,7 +40,7 @@ transistors next to the regulator (Q2 to Q4 on the PCB). Without it every sensor
 (confirmed on the board: all 84 sites read 0 to 2 counts under the old firmware, which drove
 none of these).
 
-## Key scan (`keyscan_column` @0x0800577c, one column per call from the main loop)
+### 12.3 Key scan (`keyscan_column` @0x0800577c, one column per call from the main loop)
 
 ADC (`FUN_08012d60`): ADC1 channel 2 on **PA2** (analog), clock HCLK/8 = 27 MHz, sample time
 28.5 cycles, single conversion, **software trigger enabled** (`OCTESEL = 111`, `OCTEN = 1`),
@@ -60,13 +60,13 @@ Per column `c` (0..13):
 
 So the matrix is **14 columns x 5 rows = 70 sites**, not 84.
 
-## Other peripherals stock enables
+### 12.4 Other peripherals stock enables
 
 GPIOA-D, GPIOF, PWC, DMA1, ADC1, SPI2, SPI3, TMR4, TMR6, OTGHS. SPI3 on PB3/PB4/PB5 (plus
 PA15, PD2) goes to the PAN1080 radio (`FUN_08016344`); SPI2 + DMA1 drive the LEDs (below); TMR6
 is stock's tick (its interrupt also restarts LED frames).
 
-## LEDs (per-key RGB, WS2812-class)
+### 12.5 LEDs (per-key RGB, WS2812-class)
 
 | Item | Value | Evidence |
 |---|---|---|
@@ -105,7 +105,7 @@ arg, code lo, code hi); its Fn layer is at 0x188B8. Types seen: 0x00 keyboard us
 consumer usage (16-bit), 0x0A layer key (Fn), 0x0D lighting controls, 0x0E / 0x08 wireless and
 profile functions.
 
-## Battery and charging (`FUN_080151f8`, every 200 ticks)
+### 12.6 Battery and charging (`FUN_080151f8`, every 200 ticks)
 
 | Item | Value | Evidence |
 |---|---|---|
@@ -120,7 +120,7 @@ profile functions.
 Charging is done by a charger IC; firmware only reads its status pin (PA3), so no firmware can
 overcharge the cell. Our firmware reads the same way from v0.06 (`fw/src/power.c`).
 
-## Sleep (stock)
+### 12.7 Sleep (stock)
 
 `FUN_080154b4` is the sleep loop, used only outside wired mode: wait for SPI3 idle, finish the
 LED frame, PB13 low (LED power off), `FUN_08016344(1)` (radio pins to their sleep setup), PA8
@@ -135,7 +135,7 @@ then restore SysTick, LDO, HEXT, the PLL and SYSCLK.
 Not yet known: the ERTC clock and prescaler (so the real sleep length), and whether the
 watchdog runs in deep sleep on this chip (user system data bit `depslp_wdt`).
 
-## Radio link (PAN1080)
+### 12.8 Radio link (PAN1080)
 
 The PAN1080 runs its own firmware (never touched by us) and keeps its own pairings. The MCU
 only tells it which mode to be in and hands it HID reports, over SPI3.
