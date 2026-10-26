@@ -11,6 +11,7 @@
 > the shi yourself and use this as a map, not a manual. **You have been warned.**
 
 **Same thing, but shorter and just looks nicer i guess? → [vivlos.dev/fun60](https://vivlos.dev/fun60/)**
+**Custom driver for the firmware → [driver.vivlos.dev](https://driver.vivlos.dev/)**
 <!-- banner:end -->
 
 
