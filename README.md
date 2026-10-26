@@ -31,9 +31,12 @@ It turned into a full replacement firmware. It's still a work in progress, so re
 
 Written 2026-09-30, updated 2026-10-26 for firmware v0.12. Stock firmware analysed: v306 for board 2307.
 
-> **This firmware was made for mechanical switches.** v0.12 adds basic magnetic switch support
-> (per-key actuation, learned the way stock does it) but nobody has typed on it with magnetic
-> switches yet. Tested on exactly one keyboard.
+> **v0.12 is extremely experimental.** It was written without the keyboard plugged in and has
+> never run on one: not with magnetic switches, not even with mechanical ones. It could type
+> wrong, miss keys or not type at all. If you just want a working keyboard, flash **v0.11**
+> instead (`git checkout v0.11`, then build as below): mechanical switches only, tested, typing
+> every day on my board. If v0.12 misbehaves, recovery is the same as always ([section 4](#4-the-brick)),
+> but holding Esc while plugging in may not work with a magnetic Esc; the watchdog failsafe does.
 
 ## -2. Changelog
 
@@ -44,7 +47,8 @@ Newest first. Small wording fixes are not listed.
 * FUN60 Studio reworked after MonsGeek's own driver: Device, Keys, Travel, Lighting, Test and
   Settings pages; switch connection mode and pair from the page; box and press-to-select;
   live travel of every key. Hosted at https://driver.vivlos.dev.
-* Firmware v0.12: basic magnetic switch support, not tested on the keyboard yet. Each key learns
+* Firmware v0.12, **extremely experimental**: basic magnetic switch support, never run on a
+  keyboard yet. The last tested firmware is tagged `v0.11`. Each key learns
   where it rests and how deep it goes, like stock does, and presses at a percent of that travel
   (50 % by default, released under 35 %). Mechanical and magnetic switches can be mixed. The web
   driver's thresholds are percents now (protocol v5). Saved settings reset to defaults once.
