@@ -288,7 +288,8 @@ for (let i = 0; i < 12; i++) add("Function", 0x68 + i, "F" + (i + 13));
 [[0xA5,"Mute"],[0xA6,"Vol-","Volume down"],[0xA7,"Vol+","Volume up"],[0xA8,"Calc","Calculator"],[0xA9,"Play","Play / pause"],[0xAA,"Next","Next track"],[0xAB,"Prev","Previous track"]].forEach(a => add("Media", ...a));
 [[0xB0,"LED","Lights on / off"],[0xB1,"Bri+","Brighter"],[0xB2,"Bri-","Dimmer"],[0xB3,"FX","Next effect"]].forEach(a => add("Lighting", ...a));
 [[0xB8,"BT1","Bluetooth 1 (hold: pair)"],[0xB9,"BT2","Bluetooth 2 (hold: pair)"],[0xBA,"BT3","Bluetooth 3 (hold: pair)"],[0xBB,"2.4G","2.4G (hold: pair)"],[0xBC,"USB","USB"],
- [0xBD,"Batt","Battery level on Esc"],[0xBE,"WinLk","Win key lock"]].forEach(a => add("Connection", ...a));   /* fw/src/keys.h */
+ [0xBD,"Batt","Battery level on Esc"],[0xBE,"WinLk","Win key lock"],
+ [0xC0,"Prof1","Profile 1"],[0xC1,"Prof2","Profile 2"],[0xC2,"Prof3","Profile 3"],[0xC3,"Prof4","Profile 4"]].forEach(a => add("Keyboard", ...a));   /* fw/src/keys.h */
 add("Special", 0x01, "Fn", "Fn layer");
 add("Special", 0x00, "None", "No key");
 const KC_BY_CODE = new Map(KC.map(k => [k.code, k]));
@@ -308,7 +309,7 @@ const BASE_DEFAULT = new Uint8Array(SITES), FN_DEFAULT = new Uint8Array(SITES);
   .forEach(([s, c]) => { FN_DEFAULT[s] = c; });
 for (let i = 1; i <= 12; i++) FN_DEFAULT[KEYS[i].site] = 0x3A + i - 1;
 
-const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressPct: 50, releasePct: 35, topDz: 0, bottomDz: 0, rtCont: 0, nkro: 1, speed: 2 };
+const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressPct: 50, releasePct: 35, topDz: 0, bottomDz: 0, rtCont: 0, nkro: 1, speed: 2, profile: 0 };
 /* per-key values (protocol v6, fw v0.13): actuation % (0 = global), rapid trigger down / up % (0 = off / same as down) */
 const KC_FIELDS = ["act", "rtDown", "rtUp"];
 const newKc = () => ({ act: new Uint8Array(SITES), rtDown: new Uint8Array(SITES), rtUp: new Uint8Array(SITES) });
@@ -344,7 +345,7 @@ const LED_BUDGET_MA = 300;
  * bytes 0..7 sum to 0xFF; opcode in byte 0, arguments in 1..6, payload from byte 8. The reply
  * comes back through GET_FEATURE with the opcode echoed in byte 0. */
 const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, SET_RADIO: 0xFA,
-  GET_KEYCFG: 0xFB, SET_KEYCFG: 0xFC, GET_TRAVEL: 0xFD, TRAVEL: 0xFE, GET_ADV: 0xE1, SET_ADV: 0xE2, GET_LEDMAP: 0xE3, SET_LEDMAP: 0xE4, GET_MACRO: 0xE5, SET_MACRO: 0xE6, ISP_PREPARE: 0xC5, BOOT: 0x7F };
+  GET_KEYCFG: 0xFB, SET_KEYCFG: 0xFC, GET_TRAVEL: 0xFD, TRAVEL: 0xFE, GET_ADV: 0xE1, SET_ADV: 0xE2, GET_LEDMAP: 0xE3, SET_LEDMAP: 0xE4, GET_MACRO: 0xE5, SET_MACRO: 0xE6, PROFILE: 0xE7, ISP_PREPARE: 0xC5, BOOT: 0x7F };
 const MAP_PAGE = 56;
 /* reply bytes 1.. that echo the request's arguments (page, layer, field), so a reply meant for
  * another tab or program using the keyboard at the same time is never taken for ours */
@@ -414,7 +415,7 @@ class HidKeyboard {
     const v6 = st.info.proto >= 6;
     return { on: d[0], effect: d[1], level: d[2], r: d[3], g: d[4], b: d[5], debounce: d[6],
              pressPct: this.legacy ? CONFIG_DEFAULT.pressPct : d[7], releasePct: this.legacy ? CONFIG_DEFAULT.releasePct : d[8],
-             topDz: v6 ? d[9] : 0, bottomDz: v6 ? d[10] : 0, rtCont: v6 ? d[11] : 0, nkro: st.info.proto >= 7 ? d[12] : 0, speed: st.info.proto >= 8 ? d[13] : 2 };
+             topDz: v6 ? d[9] : 0, bottomDz: v6 ? d[10] : 0, rtCont: v6 ? d[11] : 0, nkro: st.info.proto >= 7 ? d[12] : 0, speed: st.info.proto >= 8 ? d[13] : 2, profile: st.info.proto >= 10 ? d[14] : 0 };
   }
   async setConfig(c) {
     await this.request(OP.SET_CFG, [], [c.on, c.effect, c.level, c.r, c.g, c.b, c.debounce,
@@ -504,6 +505,8 @@ class HidKeyboard {
   /* 1: store the travel seen since power-on (returns how many keys), 2: clear it, 3: relearn */
   async travelCmd(cmd) { return (await this.request(OP.TRAVEL, [cmd]))[1]; }
   async restart() { await this.request(OP.BOOT, [0x52, 0x45, 0x53, 0x54]); }
+  /* protocol v10: the keyboard saves the profile it leaves, loads the other and saves */
+  async profile(n) { await this.request(OP.PROFILE, [n]); }
   async save() { const u = await this.request(OP.SAVE); if (u[1] !== 1) throw new Error("The keyboard could not write its settings to flash."); }
   async defaults() { await this.request(OP.DEFAULTS); }
   async radio() { const u = await this.request(OP.RADIO); return { mode: u[1], state: u[2], seen: !!u[5] }; }
@@ -524,7 +527,8 @@ class DemoKeyboard {
     this.save();
   }
   name() { return "FUN60 Ultra TMR (demo)"; }
-  async info() { return { devId: 2307, proto: 9, version: "0.16" }; }
+  async info() { return { devId: 2307, proto: 10, version: "0.17" }; }
+  async profile(n) { this.cfg.profile = n; }
   async radio() { return { mode: this.mode ?? 6, state: this.mode === 6 || this.mode === undefined ? 0 : 3, seen: true }; }
   async setRadio(mode) { this.mode = mode; }
   async power() { return { percent: 87, usb: true, charging: false, raw: 1560 }; }
@@ -609,6 +613,7 @@ const perKey = () => st.info && st.info.proto >= 6;
 const hasAdv = () => st.info && st.info.proto >= 7;
 const hasFx = () => st.info && st.info.proto >= 8;
 const hasMacros = () => st.info && st.info.proto >= 9;
+const hasProfiles = () => st.info && st.info.proto >= 10;
 const eqMap = (a, b) => a.every((l, i) => l.every((c, j) => c === b[i][j]));
 const MODES = { 0: "Bluetooth 1", 1: "Bluetooth 2", 2: "Bluetooth 3", 5: "2.4G", 6: "USB" };
 const radioText = () => {
@@ -940,7 +945,7 @@ const pctMark = (pct, c, label) => `<div class="mark" style="top:${pct}%;--c:${c
 function macroCard() {
   const m = st.macros[st.macro], rec = st.rec;
   const ACT = ["Wait", "Down", "Up", "Tap"];
-  const codeOpts = sel => CATS.filter(c => !["Lighting", "Connection", "Special"].includes(c)).map(c =>
+  const codeOpts = sel => CATS.filter(c => !["Lighting", "Keyboard", "Special"].includes(c)).map(c =>
     `<optgroup label="${c}">${KC.filter(k => k.cat === c).map(k => `<option value="${k.code}" ${k.code === sel ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>`).join("");
   return `<div class="card wide">
     <div class="row" style="justify-content:space-between"><div><div class="eyebrow">${m.length} of ${MACRO_STEPS} steps</div><h2>Macros</h2></div>
@@ -1123,7 +1128,7 @@ const PAGES = {
   advanced() {
     if (!hasAdv()) return `<div class="cols"><div class="card"><h2>Advanced keys</h2><p>Needs firmware v0.14 or newer (Firmware page).</p></div></div>`;
     const keyOpts = sel => KEYS.map(k => `<option value="${k.site}" ${k.site === sel ? "selected" : ""}>${esc(kcShort(BASE_DEFAULT[k.site]))}</option>`).join("");
-    const codeOpts = sel => `<option value="0" ${sel ? "" : "selected"}>None</option>` + CATS.filter(c => !["Lighting", "Connection", "Special"].includes(c)).map(c =>
+    const codeOpts = sel => `<option value="0" ${sel ? "" : "selected"}>None</option>` + CATS.filter(c => !["Lighting", "Keyboard", "Special"].includes(c)).map(c =>
       `<optgroup label="${c}">${KC.filter(k => k.cat === c).map(k => `<option value="${k.code}" ${k.code === sel ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>`).join("");
     const pick = (j, f, html, label) => `<label>${label} <select class="inp" data-j="${j}" data-f="${f}">${html}</select></label>`;
     const POINTS = ["Press", "Bottom", "Off bottom", "Release"], ACTS = ["-", "Down", "Up", "Tap"];
@@ -1288,6 +1293,12 @@ const PAGES = {
           <button class="btn" id="defaults">Restore defaults</button></div>
         <p class="note">Restore defaults loads the stock layout, our arrows and rainbow lighting. Save afterwards to keep it.</p>
       </div>
+      ${hasProfiles() ? `<div class="card">
+        <div class="eyebrow">Profiles</div>
+        <h2>Profile ${st.cfg.profile + 1}</h2>
+        <div class="seg" role="group" aria-label="Profile">${[0, 1, 2, 3].map(n => `<button data-profile="${n}" aria-pressed="${st.cfg.profile === n}">${n + 1}</button>`).join("")}</div>
+        <p class="note">Each profile has its own keymap, lighting, actuation, advanced keys and macros. Switching keeps what you have now in the profile you leave (it saves it), and a profile never used before starts as a copy. Calibrated travel and the wireless mode are the keyboard's, shared by all. Profile 1-4 keys can go on any key (Keys page, Keyboard).</p>
+      </div>` : ""}
       ${hasAdv() ? `<div class="card">
         <div class="eyebrow">USB</div>
         <h2>Keys at once</h2>
@@ -1434,6 +1445,10 @@ const BIND = {
   },
   settings(p) {
     p.querySelector("#save2").onclick = save;
+    p.querySelectorAll("[data-profile]").forEach(b => b.onclick = async () => {
+      try { await st.kb.profile(+b.dataset.profile); await sleep(400); } catch (e) { st.error = e.message; }
+      await attach(st.kb);                         /* everything comes from the new profile */
+    });
     const nk = p.querySelector("#nkro"); if (nk) nk.onchange = () => { st.cfg.nkro = nk.checked ? 1 : 0; push("cfg"); renderPanel(); };
     p.querySelector("#defaults").onclick = async () => {
       await st.kb.defaults(); st.map = await st.kb.keymap(); st.cfg = await st.kb.config(); if (perKey()) st.kc = await st.kb.keycfg(); if (hasAdv()) st.adv = await st.kb.adv(); if (hasFx()) st.ledmap = await st.kb.ledmap(); if (hasMacros()) st.macros = await st.kb.macros(); render();
