@@ -41,6 +41,9 @@ Newest first. Small wording fixes are not listed.
 
 **2026-10-26**
 
+* FUN60 Studio reworked after MonsGeek's own driver: Device, Keys, Travel, Lighting, Test and
+  Settings pages; switch connection mode and pair from the page; box and press-to-select;
+  live travel of every key. Hosted at https://driver.vivlos.dev.
 * Firmware v0.12: basic magnetic switch support, not tested on the keyboard yet. Each key learns
   where it rests and how deep it goes, like stock does, and presses at a percent of that travel
   (50 % by default, released under 35 %). Mechanical and magnetic switches can be mixed. The web

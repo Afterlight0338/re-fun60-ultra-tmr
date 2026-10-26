@@ -27,7 +27,8 @@ Working, tested on my board:
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
 - battery level and charging state
 - settings saved on the keyboard: keymap, lighting, debounce, actuation
-- FUN60 Studio, a web driver: remap, lighting, performance, save and restore, a double-press tester
+- FUN60 Studio, a web driver at driver.vivlos.dev: remap, connection modes, live key travel,
+  lighting, a press test and a double-press tester, save and restore
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
 Built, not tested yet:
