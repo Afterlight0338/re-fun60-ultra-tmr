@@ -2,6 +2,7 @@
 // Deploy with `driver/serve.sh deploy`.
 {
   "name": "fun60-studio",
+  "account_id": "b4b16a969b4e57fb4b1c81e6504e2018",   // afterlight0338, owns the vivlos.dev zone
   "compatibility_date": "2026-10-01",
   "assets": { "directory": "./site" },
   "routes": [{ "pattern": "driver.vivlos.dev", "custom_domain": true }]
