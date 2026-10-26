@@ -1,4 +1,5 @@
 [
-{"version": "0.12", "ref": "v0.12", "status": "experimental", "date": "2026-10-26", "notes": "Magnetic switch support (per-key travel, learned like stock). Never run on a keyboard yet: it may mistype, miss keys or not type at all. Holding Esc while plugging in may not reach the bootloader with a magnetic Esc."},
+{"version": "0.17", "ref": "v0.17", "status": "experimental", "date": "2026-10-26", "notes": "Magnetic switches with per-key actuation, rapid trigger, dead zones and saved calibration; NKRO over USB; SnapKey, mod-tap, toggle, DKS and macros; 4 profiles; more lighting effects. Ran on a keyboard all night and checked through its USB reports, but not typed on by hand yet. Settings reset to defaults once."},
+{"version": "0.12", "ref": "v0.12", "status": "old", "date": "2026-10-26", "notes": "First magnetic switch support, superseded by 0.17."},
 {"version": "0.11", "ref": "v0.11", "status": "stable", "date": "2026-09-30", "notes": "Mechanical switches only. Tested and in daily use: USB, 2.4G, Fn layer, lighting, no double typing."}
 ]
