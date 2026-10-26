@@ -55,12 +55,13 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
       r[8 + s / 8] |= (uint8_t)(1u << (s % 8));
       if (settings.keymap[0][s] == KC_FN) r[2] = 1;
     }
+    r[3] = st->keys && st->keys->mac;
     break;
 
   case OP_GET_MAP:
   case OP_SET_MAP: {
     unsigned layer = q[1], first = q[2] * MAP_PER_PAGE, n = 0;
-    if (layer < 2 && first < SCAN_SITES) {
+    if (layer < 3 && first < SCAN_SITES) {
       n = SCAN_SITES - first < MAP_PER_PAGE ? SCAN_SITES - first : MAP_PER_PAGE;
       if (q[0] == OP_SET_MAP && q[3] < n) n = q[3];
       for (unsigned i = 0; i < n; i++) {

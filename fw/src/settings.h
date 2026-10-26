@@ -21,13 +21,14 @@
 #define PROFILES          4u
 #define PROFILE_ADDR(n)   (0x08025000u + (n) * 0x800u)
 #define SETTINGS_MAGIC    0x53363046u    /* "F06S" */
-#define SETTINGS_VERSION  9u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
+#define SETTINGS_VERSION  10u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
                                           * 5: per-key actuation, rapid trigger, dead zones, saved travel (v0.13);
                                           * 6: advanced keys, NKRO (v0.14); 7: effects, speed, key colours (v0.15);
-                                          * 8: macros (v0.16); 9: profiles (v0.17) */
+                                          * 8: macros (v0.16); 9: profiles (v0.17); 10: Mac Fn layer, Esc rest (v0.18) */
 
 typedef struct {
-  uint8_t  keymap[2][SCAN_SITES];        /* [0] base, [1] Fn (KC_NO = base key) */
+  uint8_t  keymap[3][SCAN_SITES];        /* [0] base, [1] Fn, [2] Fn with the switch at the top (Mac);
+                                          * KC_NO = base key */
   led_state_t led;
   uint8_t  debounce_ms;                  /* release hold-off, debounce.h */
   uint8_t  press_pct, release_pct;       /* travel thresholds in percent, keys.h */
@@ -43,6 +44,7 @@ typedef struct {
   uint8_t  nkro;                         /* USB: every key at once (interface 2), else 6 keys */
   macro_step_t macro[MACROS][MACRO_STEPS]; /* keys.h */
   uint8_t  profile;                      /* 0..PROFILES-1, the one these settings belong to */
+  uint16_t esc_rest;                     /* Esc's rest when its travel was stored (hold Esc at power-on) */
 } settings_t;
 
 extern settings_t settings;

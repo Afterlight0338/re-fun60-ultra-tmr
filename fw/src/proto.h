@@ -10,8 +10,10 @@
  *   0x7F 55 AA 55 AA        -> reboot into the factory bootloader (3151:502A)
  *   0x7F 'R' 'E' 'S' 'T'    -> plain restart, settings kept (v6)
  *   0xF0 GET_RAW  [page]    -> [1] page, [2] sites, [3..62] 30 x u16 LE raw ADC
- *   0xF1 GET_STATE          -> [1] sites, [2] Fn held, [8..] pressed bitmap (site s = bit s)
- *   0xF2 GET_MAP  [layer][page]        -> [1] layer, [2] page, [3] n, [8..] n keycodes
+ *   0xF1 GET_STATE          -> [1] sites, [2] Fn held, [3] Mac switch position (v11),
+ *                              [8..] pressed bitmap (site s = bit s)
+ *   0xF2 GET_MAP  [layer][page]        -> [1] layer, [2] page, [3] n, [8..] n keycodes; layer 2 =
+ *                              Fn with the switch at the top (Mac), v11
  *   0xF3 SET_MAP  [layer][page][n], [8..] n keycodes (pages of 56 sites)
  *   0xF4 GET_CFG            -> [8..] on, effect, level, r, g, b, hold-off ms,
  *                              press %, release % of travel (v5; v4 and older sent
@@ -62,7 +64,7 @@
 #include <stdint.h>
 #include "keys.h"
 
-#define PROTO_VERSION      10u
+#define PROTO_VERSION      11u
 #define PROTO_REPORT_LEN   64u
 #define OP_GET_INFOR       0x8Fu
 #define OP_ISP_PREPARE     0xC5u

@@ -9,8 +9,9 @@ settings_t settings;
 
 void settings_defaults(settings_t *s)
 {
-  for (unsigned l = 0; l < 2; l++)
-    for (unsigned i = 0; i < SCAN_SITES; i++) s->keymap[l][i] = keymap_default[l][i];
+  for (unsigned l = 0; l < 3; l++)
+    for (unsigned i = 0; i < SCAN_SITES; i++) s->keymap[l][i] = keymap_default[l ? 1 : 0][i];
+  for (unsigned c = 1; c <= 12; c++) s->keymap[2][c * SCAN_CH] = mac_number_row[c - 1];   /* number row */
   s->led = (led_state_t){ .on = 1, .effect = LED_RAINBOW, .level = 2, .r = 255, .g = 255, .b = 255, .speed = 2 };
   for (unsigned i = 0; i < LED_COUNT; i++) s->led.custom[i][0] = s->led.custom[i][1] = s->led.custom[i][2] = 255;
   s->debounce_ms = KEY_DEBOUNCE_MS;
@@ -41,6 +42,7 @@ void settings_sanitize(settings_t *s)
   if (s->release_pct + 5 > s->press_pct) s->release_pct = s->press_pct - 5;
   if (s->conn_mode > RADIO_BT3 && s->conn_mode != RADIO_24G) s->conn_mode = RADIO_BT1;
   if (s->profile >= PROFILES) s->profile = 0;
+  if (s->esc_rest < KEY_REST_MIN || s->esc_rest > KEY_REST_MAX) s->esc_rest = 0;
   if (s->top_dz > 30) s->top_dz = 30;
   if (s->bottom_dz > 30) s->bottom_dz = 30;
   s->rt_continuous = s->rt_continuous ? 1 : 0;

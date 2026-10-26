@@ -57,10 +57,17 @@ enum {
 
 static const uint16_t consumer_usage[] = {          /* indexed from KC_MUTE */
   0x00E2 /* Mute */, 0x00EA /* Volume Down */, 0x00E9 /* Volume Up */, 0x0192 /* Calculator */,
-  0x00CD /* Play/Pause */, 0x00B5 /* Next Track */, 0x00B6 /* Previous Track */
+  0x00CD /* Play/Pause */, 0x00B5 /* Next Track */, 0x00B6 /* Previous Track */,
+  0x0070 /* Brightness Down */, 0x006F /* Brightness Up */
 };
 
 const uint8_t keymap_default[2][SCAN_SITES] = { BASE_LAYER, FN_LAYER };
+
+/* Fn with the switch at the top: stock's Mac layer (its table @0x18cb8 + 0x200, same format) is
+ * the Fn layer with brightness, Mission Control, Spotlight and media on the number row 1 .. = */
+const uint8_t mac_number_row[12] = {
+  KC_BRID, KC_BRIU, KC_MCTL, KC_SPOT, F5, F6, KC_PREV, KC_PLAY, KC_NEXT, KC_MUTE, KC_VOLD, KC_VOLU
+};
 
 void keys_init(keys_t *k)
 {
@@ -80,17 +87,18 @@ void keys_init(keys_t *k)
   debounce_init(&k->db);
 }
 
+/* the layer on top of the base one: 0 none, 1 Fn, 2 Fn with the switch at the top (Mac) */
 static int fn_held(const keys_t *k)
 {
   for (unsigned i = 0; i < SCAN_SITES; i++)
-    if (k->pressed[i] && settings.keymap[0][i] == KC_FN) return 1;
+    if (k->pressed[i] && settings.keymap[0][i] == KC_FN) return k->mac ? 2 : 1;
   return 0;
 }
 
 /* what site i means right now: the Fn layer's entry while Fn is held, else the base one */
 static uint8_t code_at(unsigned i, int fn)
 {
-  return fn && settings.keymap[1][i] != KC_NO ? settings.keymap[1][i] : settings.keymap[0][i];
+  return fn && settings.keymap[fn][i] != KC_NO ? settings.keymap[fn][i] : settings.keymap[0][i];
 }
 
 void keys_reset_adv(keys_t *k)
@@ -99,6 +107,12 @@ void keys_reset_adv(keys_t *k)
   for (unsigned i = 0; i < 8; i++) k->tap_code[i] = 0;
   for (unsigned i = 0; i < ADV_MAX; i++) k->adv[i].on = k->adv[i].latched = k->adv[i].bottom = 0;
   for (unsigned p = 0; p < PLAYERS; p++) k->play[p].on = 0;
+}
+
+int keys_boot_held(uint16_t v)
+{
+  unsigned span = settings.span[KEY_BOOT_SITE], rest = settings.esc_rest;
+  return v < 700u || (span && rest && v + span / 2u < rest);   /* mechanical, or half its saved travel */
 }
 
 void keys_relearn(keys_t *k)
@@ -122,6 +136,7 @@ unsigned keys_store_travel(const keys_t *k)
     if (settings.keymap[0][i] == KC_NO || rest < KEY_REST_MIN || rest > KEY_REST_MAX ||
         bottom + KEY_MIN_TRAVEL > rest) continue;         /* not bottomed out this session */
     settings.span[i] = (uint16_t)(rest - bottom);
+    if (i == KEY_BOOT_SITE) settings.esc_rest = (uint16_t)rest;
     n++;
   }
   return n;
@@ -355,6 +370,8 @@ int keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms)
   return changed;
 }
 
+#define HAS(set, c) ((set)[(c) >> 3] >> ((c) & 7) & 1u)
+
 /* every code held right now, one bit per code: mapped keys plus advanced-key output */
 static void keys_codes(const keys_t *k, uint8_t set[32])
 {
@@ -365,8 +382,9 @@ static void keys_codes(const keys_t *k, uint8_t set[32])
     uint8_t code = code_at(i, fn);
     set[code >> 3] |= (uint8_t)(1u << (code & 7));
   }
+  if (HAS(set, KC_MCTL)) { set[LCTL >> 3] |= 1u << (LCTL & 7); set[UP >> 3] |= 1u << (UP & 7); }    /* Ctrl + Up */
+  if (HAS(set, KC_SPOT)) { set[LGUI >> 3] |= 1u << (LGUI & 7); set[SPC >> 3] |= 1u << (SPC & 7); }  /* Cmd + Space */
 }
-#define HAS(set, c) ((set)[(c) >> 3] >> ((c) & 7) & 1u)
 
 /* codes that go to the host as keyboard usages: not Fn, not the firmware's own (0xA5-0xDF) */
 static int sent_code(unsigned c) { return c > KC_FN && (c < 0xA5u || c >= LCTL); }
@@ -404,7 +422,7 @@ uint16_t keys_consumer(const keys_t *k)
 {
   uint8_t set[32];
   keys_codes(k, set);
-  for (unsigned c = KC_MUTE; c <= KC_PREV; c++)
+  for (unsigned c = KC_MUTE; c <= KC_BRIU; c++)
     if (HAS(set, c)) return consumer_usage[c - KC_MUTE];
   return 0;
 }

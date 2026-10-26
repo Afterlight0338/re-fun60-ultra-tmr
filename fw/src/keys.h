@@ -36,6 +36,7 @@
 #define KEY_REST_MIN       1000u   /* stock ignores a key whose rest is outside this */
 #define KEY_REST_MAX       3300u
 #define KEY_DEBOUNCE_MS    8u      /* release hold-off, see debounce.h */
+#define KEY_BOOT_SITE      0u      /* Esc: held while plugging in = bootloader (main.c) */
 
 /* keymap codes: HID keyboard usages, plus */
 #define KC_NO   0x00u
@@ -48,6 +49,10 @@
 #define KC_PLAY     0xA9u
 #define KC_NEXT     0xAAu
 #define KC_PREV     0xABu
+#define KC_BRID     0xACu          /* screen brightness down / up (consumer) */
+#define KC_BRIU     0xADu
+#define KC_MCTL     0xAEu          /* Mac: Mission Control, sent as Ctrl + Up */
+#define KC_SPOT     0xAFu          /* Mac: Spotlight, sent as Cmd + Space */
 #define KC_LED_TOG  0xB0u          /* lighting actions, handled on the keyboard (leds.h) */
 #define KC_LED_BRU  0xB1u
 #define KC_LED_BRD  0xB2u
@@ -116,10 +121,12 @@ typedef struct {
   struct { uint8_t on, macro, pos, entry; uint32_t next; uint8_t down[32]; } play[PLAYERS];
   uint8_t  actions;                  /* LED_ACT_* pressed and not yet taken */
   uint8_t  winlock;                  /* KC_WINLOCK toggles it; GUI modifiers dropped */
+  uint8_t  mac;                      /* switch under Caps Lock at the top: Fn uses layer 2 (main.c) */
   debounce_t db;
 } keys_t;
 
 extern const uint8_t keymap_default[2][SCAN_SITES];  /* [0] base, [1] Fn held (KC_NO = base) */
+extern const uint8_t mac_number_row[12];             /* Fn layer 2 (Mac switch): keys 1 .. = */
 
 void keys_init(keys_t *k);
 /* One scan frame in; returns 1 if the debounced key set changed. */
@@ -137,6 +144,9 @@ uint16_t keys_bottom(const keys_t *k, unsigned i);
 /* Save the travel each key has shown since power-on (bottomed out at least KEY_MIN_TRAVEL
  * below rest) into settings.span; returns how many keys were stored. SAVE writes it to flash. */
 unsigned keys_store_travel(const keys_t *k);
+/* Esc reading v counts as held for the power-on bootloader check: under 700 counts (mechanical,
+ * v0.11's threshold), or half of Esc's saved travel below its saved rest (magnetic). */
+int keys_boot_held(uint16_t v);
 /* Forget what was learned since power-on (rest and bottom start again from the next frame). */
 void keys_relearn(keys_t *k);
 /* Settings were replaced (profile switch): drop what advanced keys and macros hold. */

@@ -397,6 +397,33 @@ int main(void)
     for (; t < 4200; t += 5) STEP();
     CHECK(runs >= 2 && !k.play[0].on && nk[0] == 0, "macro: repeats while held, stops after the key is let go");
 
+    /* Mac switch position: Fn uses layer 2 (stock's Mac number row) */
+    settings_defaults(&settings); keys_init(&k); SET_ALL(1600); t = 4300; STEP();
+    const unsigned FNK = 10 * SCAN_CH + 4, N1 = 1 * SCAN_CH, N3 = 3 * SCAN_CH, N4 = 4 * SCAN_CH, N5 = 5 * SCAN_CH;
+    k.mac = 1;
+    f[FNK] = 80; f[N1] = 80; t = 4310; STEP();
+    CHECK(keys_consumer(&k) == 0x0070 && !NK(0x3A), "Mac: Fn + 1 = brightness down, not F1");
+    f[N1] = 1600; f[N3] = 80; t = 4330; STEP();
+    CHECK(nk[0] == 0x01 && NK(0x52), "Mac: Fn + 3 = Mission Control (Ctrl + Up)");
+    f[N3] = 1600; f[N4] = 80; t = 4350; STEP(); t = 4360; STEP();
+    CHECK(nk[0] == 0x08 && NK(0x2C) && !NK(0x52), "Mac: Fn + 4 = Spotlight (Cmd + Space)");
+    f[N4] = 1600; f[N5] = 80; t = 4370; STEP(); t = 4380; STEP();
+    CHECK(NK(0x3E) && nk[0] == 0, "Mac: Fn + 5 stays F5");
+    k.mac = 0; t = 4390; STEP();
+    CHECK(NK(0x3E), "switch back down: Fn + 5 is F5 on the normal Fn layer too");
+    f[N5] = 1600; f[N1] = 80; t = 4400; STEP(); t = 4410; STEP();
+    CHECK(NK(0x3A) && keys_consumer(&k) == 0, "switch down: Fn + 1 = F1");
+    SET_ALL(1600); t = 4420; STEP(); t = 4440; STEP();
+
+    /* hold Esc at power-on: mechanical threshold, or half the saved travel of a magnetic Esc */
+    settings_defaults(&settings);
+    CHECK(keys_boot_held(650) && !keys_boot_held(1600) && !keys_boot_held(1500), "boot Esc: mechanical under 700, nothing saved = magnetic never");
+    keys_init(&k); SET_ALL(1600); f[0] = 1806; t = 4500; STEP(); f[0] = 1211; t = 4510; STEP();   /* the real Space numbers */
+    f[0] = 1806; t = 4520; STEP(); keys_store_travel(&k);
+    CHECK(settings.esc_rest == 1806 && settings.span[0] == 595, "storing travel keeps Esc's rest too");
+    CHECK(keys_boot_held(1450) && !keys_boot_held(1550) && !keys_boot_held(1806), "boot Esc magnetic: held past half its travel (1508), not above");
+    settings_defaults(&settings); SET_ALL(1600); keys_init(&k);
+
     /* debug press from the host */
     settings_defaults(&settings); keys_init(&k); SET_ALL(1600); t = 3000; STEP();
     k.force[A_] = 1; t = 3010; STEP();
@@ -493,7 +520,7 @@ int main(void)
     memcpy(r + 8, page, MAP_PER_PAGE);
     proto_dispatch(&st, r);
     CHECK(settings.keymap[0][G_] == 0x0B && r[8 + G_] == 0x0B, "SET_MAP remaps G to H and echoes it");
-    req(r, (const uint8_t[]){OP_SET_MAP, 2, 0, MAP_PER_PAGE}, 4);
+    req(r, (const uint8_t[]){OP_SET_MAP, 3, 0, MAP_PER_PAGE}, 4);
     proto_dispatch(&st, r);
     CHECK(r[3] == 0, "SET_MAP to a layer that doesn't exist changes nothing");
 

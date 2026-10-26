@@ -123,18 +123,16 @@ static void failsafe_boot(void)
 /* ---- hold Esc while plugging in: bootloader, no tools or case opening needed ----
  * Esc (site 0) must read pressed and "1" (site 8) at rest on 5 scans in a row, so a matrix
  * that reads all-low (rails not up, broken scan) can't send every boot to the bootloader. */
-#define BOOTKEY_SITE   0u
 #define BOOTKEY_REF    8u
-/* fixed counts (v0.11's mechanical thresholds): no calibration exists yet at boot.
- * ponytail: a magnetic Esc may never read this low; then use the watchdog failsafe. */
-#define BOOTKEY_PRESS_BELOW  700u
+/* nothing is learned yet at power-on: a mechanical Esc reads under 700 counts, a magnetic one
+ * needs its travel stored once (Travel page, calibration), see keys_boot_held() */
 #define BOOTKEY_REST_ABOVE   1000u
 
 static void bootkey_check(void)
 {
   for (int i = 0; i < 5; i++) {
     scan_frame(raw);
-    if (raw[BOOTKEY_SITE] >= BOOTKEY_PRESS_BELOW || raw[BOOTKEY_REF] <= BOOTKEY_REST_ABOVE)
+    if (!keys_boot_held(raw[KEY_BOOT_SITE]) || raw[BOOTKEY_REF] <= BOOTKEY_REST_ABOVE)
       return;
   }
   enter_bootloader();
@@ -274,6 +272,7 @@ int main(void)
     }
 
     scan_frame(raw);
+    keys.mac = power.sw;                           /* switch under Caps Lock at the top */
     report_changed = keys_update(&keys, raw, now);
     report_due |= report_changed;
     mode_keys(now);
