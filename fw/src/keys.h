@@ -69,15 +69,26 @@
  *   ADV_TOGGLE a: a tap latches code[0] down until the next press; a long press is a normal key.
  *   ADV_DKS    a: up to 4 codes, each with an action at 4 points: press (actuation), bottom
  *              (travel reaches p0 %, 0 = 90), off the bottom (back above it), release.
- *              act[i] = 2 bits per point, point 0 in bits 0-1: 0 nothing, 1 down, 2 up, 3 tap. */
+ *              act[i] = 2 bits per point, point 0 in bits 0-1: 0 nothing, 1 down, 2 up, 3 tap.
+ *   ADV_MACRO  a: plays macro p0 (settings.macro) when pressed; b = 1: again and again while held.
+ *
+ * A macro is up to MACRO_STEPS steps: code + arg. code 0: wait arg x 10 ms (arg 0 = the end);
+ * else arg 1 = down, 2 = up, 3 = tap. Each key step takes ADV_TAP_MS (a tap twice that) so every
+ * step reaches the host as its own report. Whatever a macro left down comes up when it ends. */
 #define ADV_MAX     16u
 #define ADV_NONE    0u
 #define ADV_SOCD    1u
 #define ADV_MODTAP  2u
 #define ADV_TOGGLE  3u
 #define ADV_DKS     4u
+#define ADV_MACRO   5u
+#define MACROS      8u
+#define MACRO_STEPS 32u
+#define PLAYERS     2u             /* macros playing at once */
 #define ADV_TAP_MS  20u            /* how long a tapped code stays down: one report on any link */
 #define NKRO_LEN    16u            /* modifiers + bitmap of usages 0x00-0x77 (report ID added by usb_hid) */
+
+typedef struct { uint8_t code, arg; } macro_step_t;
 
 typedef struct {
   uint8_t type, a, b, p0;
@@ -100,6 +111,7 @@ typedef struct {
   uint8_t  tap_code[8];              /* tapped codes and when they come up again */
   uint32_t tap_until[8];
   struct { uint8_t on, latched, bottom; uint32_t since; } adv[ADV_MAX];
+  struct { uint8_t on, macro, pos, entry; uint32_t next; uint8_t down[32]; } play[PLAYERS];
   uint8_t  actions;                  /* LED_ACT_* pressed and not yet taken */
   uint8_t  winlock;                  /* KC_WINLOCK toggles it; GUI modifiers dropped */
   debounce_t db;

@@ -135,6 +135,22 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     break;
   }
 
+  case OP_GET_MACRO:
+  case OP_SET_MACRO: {
+    unsigned m = q[1], first = q[2] * MACRO_PER_PAGE, n = 0;
+    if (m < MACROS && first < MACRO_STEPS) {
+      n = MACRO_STEPS - first < MACRO_PER_PAGE ? MACRO_STEPS - first : MACRO_PER_PAGE;
+      if (q[0] == OP_SET_MACRO) {
+        if (q[3] < n) n = q[3];
+        for (unsigned i = 0; i < n; i++) settings.macro[m][first + i] = (macro_step_t){ q[8 + 2 * i], q[9 + 2 * i] };
+        settings_sanitize(&settings);
+      }
+      for (unsigned i = 0; i < n; i++) { r[8 + 2 * i] = settings.macro[m][first + i].code; r[9 + 2 * i] = settings.macro[m][first + i].arg; }
+    }
+    r[1] = q[1]; r[2] = q[2]; r[3] = (uint8_t)n;
+    break;
+  }
+
   case OP_DEBUG_PRESS:
     if (st->keys && q[1] < SCAN_SITES) st->keys->force[q[1]] = q[2] == 1;
     r[1] = q[1]; r[2] = q[2];

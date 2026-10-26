@@ -74,6 +74,7 @@ void keys_init(keys_t *k)
   for (unsigned i = 0; i < 32; i++) k->held[i] = 0;
   for (unsigned i = 0; i < 8; i++) k->tap_code[i] = 0;
   for (unsigned i = 0; i < ADV_MAX; i++) k->adv[i].on = k->adv[i].latched = k->adv[i].bottom = 0;
+  for (unsigned p = 0; p < PLAYERS; p++) k->play[p].on = 0;
   k->winlock = 0;
   k->actions = 0;
   debounce_init(&k->db);
@@ -190,6 +191,35 @@ static void dks_point(keys_t *k, const adv_t *a, unsigned point, uint32_t now)
   }
 }
 
+/* step the macros playing (keys.h); a run ends at an empty step or MACRO_STEPS */
+static void macros_play(keys_t *k, uint32_t now)
+{
+  for (unsigned p = 0; p < PLAYERS; p++) {
+    __typeof__(k->play[0]) *pl = &k->play[p];
+    while (pl->on && (int32_t)(now - pl->next) >= 0) {
+      const macro_step_t *st = pl->pos < MACRO_STEPS ? &settings.macro[pl->macro][pl->pos] : 0;
+      if (!st || (!st->code && !st->arg)) {                     /* the end */
+        for (unsigned c = 0; c < 256; c++)
+          if (pl->down[c >> 3] >> (c & 7) & 1u) hold_code(k, (uint8_t)c, 0);
+        for (unsigned i = 0; i < 32; i++) pl->down[i] = 0;
+        const adv_t *a = &settings.adv[pl->entry];
+        if (a->type == ADV_MACRO && a->b && k->pressed[a->a]) { pl->pos = 0; pl->next = now + ADV_TAP_MS; }
+        else pl->on = 0;
+        break;
+      }
+      pl->pos++;
+      if (!st->code) { pl->next = now + st->arg * 10u; continue; }
+      uint8_t c = st->code, bit = (uint8_t)(1u << (c & 7));
+      if (st->arg == 3) { tap_code(k, c, now); pl->next = now + 2u * ADV_TAP_MS; }
+      else {
+        hold_code(k, c, st->arg == 1);
+        if (st->arg == 1) pl->down[c >> 3] |= bit; else pl->down[c >> 3] &= (uint8_t)~bit;
+        pl->next = now + ADV_TAP_MS;
+      }
+    }
+  }
+}
+
 static void adv_update(keys_t *k, const uint8_t *before, uint32_t now)
 {
   int other_down = 0;                    /* a normal key went down this frame (mod-tap: hold) */
@@ -245,10 +275,24 @@ static void adv_update(keys_t *k, const uint8_t *before, uint32_t now)
       }
       break;
     }
+    case ADV_MACRO:
+      if (down && !was) {
+        unsigned p, busy = 0;
+        for (p = 0; p < PLAYERS; p++) busy |= k->play[p].on && k->play[p].entry == j;   /* still playing */
+        for (p = 0; p < PLAYERS && k->play[p].on; p++) { }
+        /* ponytail: a third macro at once is dropped; PLAYERS is the knob */
+        if (!busy && p < PLAYERS) {
+          k->play[p].on = 1; k->play[p].macro = a->p0; k->play[p].entry = (uint8_t)j;
+          k->play[p].pos = 0; k->play[p].next = now;
+          for (unsigned i = 0; i < 32; i++) k->play[p].down[i] = 0;
+        }
+      }
+      break;
     default:
       break;
     }
   }
+  macros_play(k, now);
 }
 
 int keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms)
@@ -276,7 +320,7 @@ int keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms)
   }
   for (unsigned j = 0; j < ADV_MAX; j++) {
     const adv_t *a = &settings.adv[j];
-    if (a->type >= ADV_MODTAP && a->type <= ADV_DKS && a->a < SCAN_SITES) owned[a->a] = 1;
+    if (a->type >= ADV_MODTAP && a->type <= ADV_MACRO && a->a < SCAN_SITES) owned[a->a] = 1;
   }
 
   int fn = fn_held(k);

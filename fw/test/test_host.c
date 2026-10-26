@@ -369,6 +369,34 @@ int main(void)
     t = 2200; STEP();
     CHECK(!NK(0x0B) && nk[0] == 0, "DKS: nothing left down");
 
+    /* macros: "hi" typed by taps, a wait, Shift held over a tap, then the end */
+    settings_defaults(&settings); keys_init(&k); SET_ALL(1600); t = 2500; STEP();
+    const macro_step_t m0[] = { {0x0B, 3}, {0x0C, 3}, {0, 5}, {0xE1, 1}, {0x04, 3}, {0xE1, 2} };
+    for (unsigned i = 0; i < 6; i++) settings.macro[0][i] = m0[i];
+    settings.adv[0] = (adv_t){ .type = ADV_MACRO, .a = A_, .p0 = 0 };
+    f[A_] = 80; t = 2600; STEP();
+    CHECK(NK(0x0B) && !NK(0x0C) && !NK(0x04), "macro: H tapped first, A itself not sent");
+    t = 2640; STEP();
+    CHECK(!NK(0x0B) && NK(0x0C), "macro: 40 ms later I");
+    f[A_] = 1600; t = 2680; STEP();
+    CHECK(!NK(0x0C) && nk[0] == 0, "macro: then the 50 ms wait, nothing down (and letting go doesn't stop it)");
+    t = 2730; STEP();
+    CHECK(nk[0] == 0x02, "macro: Shift down after the wait");
+    t = 2750; STEP();
+    CHECK(nk[0] == 0x02 && NK(0x04), "macro: Shift + A");
+    t = 2790; STEP(); t = 2810; STEP();
+    CHECK(nk[0] == 0 && !NK(0x04) && !k.play[0].on, "macro: Shift up, finished");
+    settings.macro[0][5] = (macro_step_t){0};                    /* now ends with Shift still down */
+    f[A_] = 80; t = 2900; STEP(); f[A_] = 1600; for (t = 2910; t <= 3300; t += 10) STEP();
+    CHECK(nk[0] == 0 && !k.play[0].on, "macro: whatever it left down comes up at the end");
+    settings.adv[0].b = 1;                                       /* repeat while held */
+    unsigned runs = 0, was = 0;
+    f[A_] = 80;
+    for (t = 3300; t < 3800; t += 5) { STEP(); runs += NK(0x0B) && !was; was = NK(0x0B); }
+    f[A_] = 1600;
+    for (; t < 4200; t += 5) STEP();
+    CHECK(runs >= 2 && !k.play[0].on && nk[0] == 0, "macro: repeats while held, stops after the key is let go");
+
     /* debug press from the host */
     settings_defaults(&settings); keys_init(&k); SET_ALL(1600); t = 3000; STEP();
     k.force[A_] = 1; t = 3010; STEP();
@@ -583,6 +611,14 @@ int main(void)
     req(r, (const uint8_t[]){OP_DEBUG_PRESS, G_, 0}, 3);
     proto_dispatch(&st, r);
     CHECK(kk.force[G_] == 0, "DEBUG_PRESS lets it go");
+    req(r, (const uint8_t[]){OP_SET_MACRO, 7, 1, 2}, 4);
+    r[8] = 0x04; r[9] = 1; r[10] = 0x04; r[11] = 9;              /* A down, A with a bad arg */
+    proto_dispatch(&st, r);
+    CHECK(settings.macro[7][16].code == 4 && settings.macro[7][16].arg == 1 && settings.macro[7][17].arg == 3 && r[11] == 3,
+          "SET_MACRO 7 page 1: stored at step 16, a bad arg becomes a tap");
+    req(r, (const uint8_t[]){OP_GET_MACRO, 8, 0}, 3);
+    proto_dispatch(&st, r);
+    CHECK(r[3] == 0, "GET_MACRO: macro 8 doesn't exist");
     settings_defaults(&settings);
   }
 

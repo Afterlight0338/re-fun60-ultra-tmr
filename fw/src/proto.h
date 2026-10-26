@@ -47,6 +47,9 @@
  *   0xE3 GET_LEDMAP [page]  -> [1] page, [2] n, [8..] n x r g b: Custom colours, 18 LEDs a page in
  *                              chain order (leds.h)                                     (v8)
  *   0xE4 SET_LEDMAP [page][n], [8..] n x r g b
+ *   0xE5 GET_MACRO [m][page] -> [1] m, [2] page, [3] n, [8..] n steps x (code, arg), 16 a page
+ *                              (keys.h); advanced key type 5 plays one                   (v9)
+ *   0xE6 SET_MACRO [m][page][n], [8..] n steps
  *   0xEF DEBUG_PRESS [site][on] -> holds a key down as if pressed (on = 1) or lets it go;
  *                              for testing the reports without touching the keyboard   (v7)
  */
@@ -56,7 +59,7 @@
 #include <stdint.h>
 #include "keys.h"
 
-#define PROTO_VERSION      8u
+#define PROTO_VERSION      9u
 #define PROTO_REPORT_LEN   64u
 #define OP_GET_INFOR       0x8Fu
 #define OP_ISP_PREPARE     0xC5u
@@ -81,6 +84,9 @@
 #define OP_GET_LEDMAP      0xE3u
 #define OP_SET_LEDMAP      0xE4u
 #define LEDMAP_PER_PAGE    18u
+#define OP_GET_MACRO       0xE5u
+#define OP_SET_MACRO       0xE6u
+#define MACRO_PER_PAGE     16u
 #define OP_DEBUG_PRESS     0xEFu
 #define ADV_PER_PAGE       4u
 #define KEYCFG_FIELDS      3u
