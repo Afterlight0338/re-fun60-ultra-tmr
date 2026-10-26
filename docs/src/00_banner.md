@@ -62,8 +62,9 @@ Newest first. Small wording fixes are not listed.
   host tests replay it through the real key code.
 * FUN60 Studio: Advanced page (SnapKey, mod-tap, toggle, DKS, macros with a recorder), per-key
   actuation and rapid trigger on the Travel page, calibration (store, clear, relearn), new
-  lighting effects and per-key colour painting, NKRO and profiles on the Settings page. It no
-  longer mixes up replies when two tabs are open at once.
+  lighting effects and per-key colour painting, NKRO and profiles on the Settings page. With
+  two tabs open, the last one to connect has the keyboard and the other says so, instead of both
+  getting each other's replies.
 * The browser flasher has now flashed a real keyboard: v0.11 and v0.12 from Brave, 2 s for the
   bootloader, under 2 s to write, settings put back after.
 

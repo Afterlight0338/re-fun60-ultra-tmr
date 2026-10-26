@@ -212,6 +212,12 @@ Without a keyboard, the driver runs a demo.
   raw sensor grid live. `--keys` shows the keymap in RAM and what's held, `--power` battery and
   charging, `--radio` the wireless link, `--mode 24g` switches mode from the PC.
 - `scripts/analyze_session.py`: makes sense of a `rawscan.py --record` capture.
+- `scripts/hwtest/`: checks that need the keyboard but nobody at it. `backup.py` dumps every
+  setting to a JSON file (do it before flashing). `usb_reports.py` presses keys from the PC and
+  reads what really goes out over USB: NKRO, the 6-key report, SnapKey, a macro, media keys. It
+  only sends codes that do nothing on a desktop, and changes nothing it doesn't put back.
+  `driver_smoke.mjs` runs FUN60 Studio in headless Brave against the keyboard (it needs a
+  browser policy that allows the device, see the file).
 - `scripts/build_readme.py`, `scripts/build_site_page.py`: build this README from `docs/src/`, and
   the vivlos.dev page from it and `docs/short.md`.
 
