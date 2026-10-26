@@ -361,8 +361,9 @@ class HidKeyboard {
       let s = 0; for (let i = 0; i < 7; i++) s += r[i];
       r[7] = (0xFF - s) & 0xFF;
       if (payload) r.set(payload.slice(0, 56), 8);
-      /* the keyboard keeps one reply: if another tab or program asked in between, ask again */
-      for (let tries = 0; tries < 5; tries++) {
+      /* the keyboard keeps one reply: if another program asked in between, ask again a little later */
+      for (let tries = 0; tries < 12; tries++) {
+        if (tries) await sleep(2 + Math.random() * 10);
         await this.dev.sendFeatureReport(0, r);
         if (op === OP.BOOT) return r;              /* it resets before answering */
         const v = await this.dev.receiveFeatureReport(0);
@@ -629,7 +630,16 @@ const batteryText = () => {
   return `${p.percent}%, ${p.charging ? "charging" : p.usb ? "on USB power" : "on battery"}`;
 };
 
+/* one tab talks to the keyboard at a time (they would take each other's replies): the tab that
+ * connects last takes it, the others drop to the demo until Connect is clicked there */
+const TAB = Math.random(), tabs = "BroadcastChannel" in window ? new BroadcastChannel("fun60-studio") : null;
+if (tabs) tabs.onmessage = e => {
+  if (e.data.claim === TAB || !st.kb || st.kb.demo || st.flashing) return;
+  attach(demo()).then(() => { st.error = "FUN60 Studio was opened in another tab, which talks to the keyboard now. Click Connect keyboard on the Device page to use it here."; render(); });
+};
+
 async function attach(kb) {
+  if (!kb.demo && tabs) tabs.postMessage({ claim: TAB });
   st.kb = kb; st.error = ""; st.pollFailed = false; st.power = null; st.powerAt = null; st.radio = null;
   st.cal = newCal(); st.raw = null; st.trace = []; st.tested.clear();
   try {
@@ -653,7 +663,9 @@ async function attach(kb) {
 
 async function connect() {
   try {
-    const [dev] = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x3151, productId: 0x5030, usagePage: 0xFFFF }] });
+    /* a keyboard this page may already use (e.g. taken back from another tab) needs no picker */
+    let dev = (await navigator.hid.getDevices()).find(isApp);
+    if (!dev) [dev] = await navigator.hid.requestDevice({ filters: [{ vendorId: 0x3151, productId: 0x5030, usagePage: 0xFFFF }] });
     if (!dev) return;
     if (!dev.opened) await dev.open();
     await attach(new HidKeyboard(dev));
