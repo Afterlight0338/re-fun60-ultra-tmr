@@ -164,7 +164,29 @@ textarea { width: 100%; min-height: 120px; padding: 10px; border-radius: 8px; bo
 .note { font-size: 12px; color: var(--faint); }
 code { font: 12px var(--mono); background: var(--raised); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
 
+.board { touch-action: none; }
+.board[data-page="travel"] .lg2 { bottom: calc(var(--u) * .32); }
+.box { position: absolute; z-index: 3; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 4px; pointer-events: none; }
+.key.tested .cap { border-color: var(--live); }
+.key.tested .cap::before { background: color-mix(in srgb, var(--live) 14%, var(--cap-top)); }
+.key.over .cap { border-color: var(--warn); }
+.wide { grid-column: 1 / -1; }
+.modes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.mode { border: 1px solid var(--line); background: var(--raised); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 500; }
+.mode small { font-size: 11px; color: var(--faint); font-weight: 400; }
+.mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.mode:disabled { opacity: .45; cursor: default; }
+.travel { display: grid; grid-template-columns: 64px 1fr; gap: 16px; align-items: stretch; }
+.shaft { position: relative; border-radius: 8px; background: var(--raised); border: 1px solid var(--line); min-height: 180px; }
+.shaft .fill { position: absolute; left: 0; right: 0; top: 0; background: color-mix(in srgb, var(--live) 30%, transparent); border-bottom: 2px solid var(--live); }
+.shaft .mark { position: absolute; left: -4px; right: -4px; border-top: 2px dashed var(--c); }
+.shaft .mark span { position: absolute; left: 8px; top: 2px; font: 11px var(--mono); color: var(--c); white-space: nowrap; }
+canvas.trace { width: 100%; height: 180px; border-radius: 8px; background: var(--raised); border: 1px solid var(--line); display: block; }
+.progress { display: flex; align-items: baseline; gap: 10px; }
+.progress b { font: 600 28px var(--display); font-variant-numeric: tabular-nums; }
+
 @media (max-width: 860px) {
+  .modes { grid-template-columns: repeat(3, 1fr); }
   .app { grid-template-columns: 1fr; }
   .nav { flex-direction: row; flex-wrap: wrap; border-right: 0; border-bottom: 1px solid var(--line); padding: 10px 16px; }
   .brand { padding: 4px 10px 4px 0; }
@@ -184,17 +206,18 @@ code { font: 12px var(--mono); background: var(--raised); border: 1px solid var(
       <div class="brand-mark" aria-hidden="true">60</div>
       <div><div class="brand-name">FUN60 Studio</div><div class="brand-sub">open firmware driver</div></div>
     </div>
-    <button data-page="home" aria-current="page"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg><span>Home</span></button>
-    <button data-page="remap"><svg viewBox="0 0 24 24"><path d="M4 7h11M4 17h7M15 4l3 3-3 3M11 14l3 3-3 3"/></svg><span>Remap</span></button>
+    <button data-page="device" aria-current="page"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></svg><span>Device</span></button>
+    <button data-page="keys"><svg viewBox="0 0 24 24"><path d="M4 7h11M4 17h7M15 4l3 3-3 3M11 14l3 3-3 3"/></svg><span>Keys</span></button>
+    <button data-page="travel"><svg viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5"/><path d="M4 21h16"/></svg><span>Travel</span></button>
     <button data-page="lighting"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg><span>Lighting</span></button>
-    <button data-page="performance"><svg viewBox="0 0 24 24"><path d="M3 17l5-6 4 3 6-8 3 3"/><path d="M3 21h18"/></svg><span>Performance</span></button>
+    <button data-page="test"><svg viewBox="0 0 24 24"><path d="M9 11l3 3 8-8"/><path d="M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9"/></svg><span>Test</span></button>
     <button data-page="settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg><span>Settings</span></button>
     <div class="nav-foot">MonsGeek FUN60 Ultra TMR<br>RY5088 / AT32F405</div>
   </nav>
 
   <main>
     <header class="topbar">
-      <h1 id="title">Home</h1>
+      <h1 id="title">Device</h1>
       <span class="pill demo" id="conn"><i></i><span id="conn-text">Demo keyboard</span></span>
       <span class="dirty" id="dirty" hidden>Unsaved changes</span>
       <button class="btn" id="revert" disabled>Revert</button>
@@ -272,7 +295,7 @@ const LED_BUDGET_MA = 300;
  * 64-byte feature reports on the vendor interface (usage page 0xFFFF), no report ID. Request
  * bytes 0..7 sum to 0xFF; opcode in byte 0, arguments in 1..6, payload from byte 8. The reply
  * comes back through GET_FEATURE with the opcode echoed in byte 0. */
-const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, BOOT: 0x7F };
+const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, SET_RADIO: 0xFA, BOOT: 0x7F };
 const MAP_PAGE = 56;
 
 class HidKeyboard {
@@ -343,6 +366,8 @@ class HidKeyboard {
   async save() { const u = await this.request(OP.SAVE); if (u[1] !== 1) throw new Error("The keyboard could not write its settings to flash."); }
   async defaults() { await this.request(OP.DEFAULTS); }
   async radio() { const u = await this.request(OP.RADIO); return { mode: u[1], state: u[2], seen: !!u[5] }; }
+  /* protocol v4: switch mode like the Fn keys; pair = also start pairing (wireless modes) */
+  async setRadio(mode, pair) { await this.request(OP.SET_RADIO, [mode, pair ? 1 : 0]); }
   async power() { const u = await this.request(OP.POWER); return { percent: u[1], usb: !!(u[2] & 1), charging: !!(u[2] & 2), raw: u[3] | u[4] << 8 }; }
   async bootloader() { await this.request(OP.BOOT, [0x55, 0xAA, 0x55, 0xAA]); }
 }
@@ -359,7 +384,8 @@ class DemoKeyboard {
   }
   name() { return "FUN60 Ultra TMR (demo)"; }
   async info() { return { devId: 2307, proto: 5, version: "0.12" }; }
-  async radio() { return { mode: 6, state: 0, seen: true }; }
+  async radio() { return { mode: this.mode ?? 6, state: this.mode === 6 || this.mode === undefined ? 0 : 3, seen: true }; }
+  async setRadio(mode) { this.mode = mode; }
   async power() { return { percent: 87, usb: true, charging: false, raw: 1560 }; }
   async state() { return { pressed: new Set(this.down), fn: false }; }
   async raw() {
@@ -385,12 +411,37 @@ const demo = () => demoKb || (demoKb = new DemoKeyboard());
 
 /* ---------- app state ---------- */
 const st = {
-  page: "home", kb: null, info: null, layer: 0, cat: "Letters", query: "",
+  page: "device", kb: null, info: null, layer: 0, cat: "Letters", query: "",
   map: [BASE_DEFAULT.slice(), FN_DEFAULT.slice()], cfg: { ...CONFIG_DEFAULT },
   savedMap: null, savedCfg: null, sel: new Set(), pressed: new Set(), raw: null,
   tester: { presses: 0, doubles: 0, up: new Map(), down: new Map(), log: [] },
-  confirmBoot: false, exportText: "", error: "",
+  tested: new Set(), pressSelect: false, focus: KEYS.find(k => k.code === "KeyW").site, trace: [],
+  cal: null, confirmBoot: false, exportText: "", error: "",
 };
+const newCal = () => ({ rest: new Uint16Array(SITES), bottom: new Uint16Array(SITES).fill(0xFFFF) });
+st.cal = newCal();
+
+/* travel in percent, the way the firmware works it out (fw/src/keys.c): rest = highest reading,
+ * bottom = lowest but at least MIN_TRAVEL below rest. Learned here since this page connected, so
+ * it can differ a little from the keyboard's own numbers (learned since it powered on). */
+const MIN_TRAVEL = 400, REST_MIN = 1000, REST_MAX = 3300;
+function travel(s) {
+  const v = st.raw[s], rest = st.cal.rest[s];
+  let bottom = st.cal.bottom[s];
+  if (bottom + MIN_TRAVEL > rest) bottom = Math.max(0, rest - MIN_TRAVEL);
+  return { v, rest, bottom, ok: rest >= REST_MIN && rest <= REST_MAX, pct: rest > bottom ? Math.max(0, Math.min(100, (rest - v) * 100 / (rest - bottom))) : 0 };
+}
+function learn(raw) {
+  for (let s = 0; s < SITES; s++) { const v = raw[s]; if (v > st.cal.rest[s]) st.cal.rest[s] = v; if (v < st.cal.bottom[s]) st.cal.bottom[s] = v; }
+}
+
+const THEME_KEY = "fun60-theme";
+function setTheme(t) {
+  if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* private window: just this visit */ }
+}
+const theme = () => document.documentElement.dataset.theme || "auto";
+try { const t = localStorage.getItem(THEME_KEY); if (t) setTheme(t); } catch (e) { /* default */ }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const isDirty = () => st.savedMap && (!eqMap(st.map, st.savedMap) || JSON.stringify(st.cfg) !== JSON.stringify(st.savedCfg));
@@ -411,6 +462,7 @@ const batteryText = () => {
 
 async function attach(kb) {
   st.kb = kb; st.error = ""; st.pollFailed = false; st.power = null; st.powerAt = null; st.radio = null;
+  st.cal = newCal(); st.raw = null; st.trace = []; st.tested.clear();
   try {
     st.info = await kb.info();
     if (!kb.demo && !st.info.proto) {             /* stock, or open firmware before v0.05 */
@@ -442,7 +494,7 @@ async function push(what) {           /* live preview: lighting and performance 
 }
 
 /* ---------- rendering ---------- */
-const TITLES = { home: "Home", remap: "Remap", lighting: "Lighting", performance: "Performance", settings: "Settings" };
+const TITLES = { device: "Device", keys: "Keys", travel: "Travel", lighting: "Lighting", test: "Test", settings: "Settings" };
 
 function renderTop() {
   $("title").textContent = TITLES[st.page];
@@ -454,7 +506,7 @@ function renderTop() {
   const b = $("banner");
   if (st.error) { b.hidden = false; b.innerHTML = `<b>Problem:</b> ${esc(st.error)}`; }
   else if (!("hid" in navigator)) { b.hidden = false; b.innerHTML = "<b>WebHID isn't available in this browser or page.</b> You're looking at a demo keyboard: type on your own keyboard to press its keys. To configure the real one, run <code>driver/serve.sh</code> and open it in Chrome or Chromium."; }
-  else if (demo) { b.hidden = false; b.innerHTML = "<b>Demo keyboard.</b> Connect your FUN60 on the Home page to edit the real one. Until then, typing on any keyboard presses these keys."; }
+  else if (demo) { b.hidden = false; b.innerHTML = "<b>Demo keyboard.</b> Connect your FUN60 on the Device page to edit the real one. Until then, typing on any keyboard presses these keys."; }
   else b.hidden = true;
   document.querySelectorAll(".nav button").forEach(n => n.setAttribute("aria-current", n.dataset.page === st.page ? "page" : "false"));
 }
@@ -462,19 +514,54 @@ function renderTop() {
 function buildBoard() {
   const board = $("board");
   board.innerHTML = KEYS.map(k => `<button class="key" data-site="${k.site}" style="left:calc(var(--u)*${k.x + 0.28});top:calc(var(--u)*${k.y + 0.28});width:calc(var(--u)*${k.w});height:var(--u)" aria-label="key"><span class="cap"><span class="lg"></span><span class="lg2"></span><span class="bar" hidden><b></b></span></span></button>`).join("");
-  board.addEventListener("click", e => {
-    const el = e.target.closest(".key"); if (!el || st.page !== "remap") return;
-    const s = +el.dataset.site;
-    if (e.shiftKey || e.ctrlKey || e.metaKey) st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s);
-    else { const only = st.sel.size === 1 && st.sel.has(s); st.sel.clear(); if (!only) st.sel.add(s); }
+  /* Keys page: click selects one, Shift/Ctrl-click adds, dragging draws a box (Shift adds to the
+   * selection). Travel page: click picks the key shown in the graph. */
+  let drag = null;
+  const box = document.createElement("div"); box.className = "box"; box.hidden = true; board.append(box);
+  const local = e => { const r = board.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
+  board.addEventListener("pointerdown", e => {
+    if (st.page !== "keys" || e.button !== 0) return;
+    drag = { at: local(e), add: e.shiftKey || e.ctrlKey || e.metaKey, moved: false };
+    board.setPointerCapture(e.pointerId);
+  });
+  board.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const [x, y] = local(e), [x0, y0] = drag.at;
+    if (!drag.moved && Math.hypot(x - x0, y - y0) < 6) return;
+    drag.moved = true; box.hidden = false;
+    Object.assign(box.style, { left: Math.min(x, x0) + "px", top: Math.min(y, y0) + "px", width: Math.abs(x - x0) + "px", height: Math.abs(y - y0) + "px" });
+  });
+  board.addEventListener("pointerup", e => {
+    if (!drag) return;
+    const d = drag, b = box.getBoundingClientRect();     /* measure before hiding it */
+    drag = null; box.hidden = true;
+    if (d.moved) {
+      if (!d.add) st.sel.clear();
+      board.querySelectorAll(".key").forEach(el => {
+        const r = el.getBoundingClientRect();
+        if (r.left < b.right && r.right > b.left && r.top < b.bottom && r.bottom > b.top) st.sel.add(+el.dataset.site);
+      });
+    } else {
+      const el = document.elementFromPoint(e.clientX, e.clientY)?.closest(".key"); if (!el) return;
+      const s = +el.dataset.site;
+      if (d.add) st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s);
+      else { const only = st.sel.size === 1 && st.sel.has(s); st.sel.clear(); if (!only) st.sel.add(s); }
+    }
     render();
+  });
+  board.addEventListener("click", e => {
+    const el = e.target.closest(".key"); if (!el) return;
+    const s = +el.dataset.site;
+    if (st.page === "travel") { st.focus = s; st.trace = []; render(); }
+    else if (st.page === "keys" && e.detail === 0) { st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s); render(); }   /* Enter / Space */
   });
   const fit = () => { const w = $("board-wrap").clientWidth; board.style.setProperty("--u", Math.max(20, Math.min(62, Math.floor(w / 15.6))) + "px"); };
   new ResizeObserver(fit).observe($("board-wrap")); fit();
 }
 
 function renderBoard() {
-  const remap = st.page === "remap", perf = st.page === "performance";
+  const remap = st.page === "keys", perf = st.page === "travel", test = st.page === "test";
+  $("board").dataset.page = st.page;
   document.querySelectorAll(".key").forEach(el => {
     const s = +el.dataset.site, base = st.map[0][s], fn = st.map[1][s];
     const lg = el.querySelector(".lg"), lg2 = el.querySelector(".lg2"), bar = el.querySelector(".bar");
@@ -483,15 +570,18 @@ function renderBoard() {
     if (base === 0 && !(remap && st.layer === 1 && fn)) { main = "None"; cls = "nokey"; }
     lg.textContent = main;
     lg2.textContent = !remap || st.layer === 0 ? (fn ? kcShort(fn) : "") : "";
-    lg2.hidden = perf;
+    if (perf) lg2.textContent = "";                  /* the live loop writes the travel percent */
+    lg2.style.color = perf ? "var(--muted)" : "";
     bar.hidden = !perf;
-    el.className = "key " + cls + (st.sel.has(s) && remap ? " sel" : "") + (st.pressed.has(s) ? " live" : "");
+    el.className = "key " + cls + ((remap && st.sel.has(s)) || (perf && st.focus === s) ? " sel" : "") +
+      (st.pressed.has(s) ? " live" : "") + (test && st.tested.has(s) ? " tested" : "");
     el.setAttribute("aria-label", `${kcShort(base)}${fn ? ", Fn: " + kcShort(fn) : ""}`);
-    el.setAttribute("aria-pressed", remap ? String(st.sel.has(s)) : "false");
+    el.setAttribute("aria-pressed", remap ? String(st.sel.has(s)) : perf ? String(st.focus === s) : "false");
   });
-  const legend = { remap: [["var(--accent)", "Selected"], ["var(--fn)", "Fn layer"], ["var(--faint)", "Same as base"]],
-                   home: [["var(--live)", "Pressed now"], ["var(--fn)", "Fn layer"]],
-                   performance: [["var(--live)", "Sensor travel"]], lighting: [], settings: [] }[st.page];
+  const legend = { keys: [["var(--accent)", "Selected"], ["var(--fn)", "Fn layer"], ["var(--faint)", "Same as base"]],
+                   device: [["var(--live)", "Pressed now"], ["var(--fn)", "Fn layer"]],
+                   travel: [["var(--live)", "Travel now"], ["var(--accent)", "Shown in the graph"], ["var(--warn)", "Past the press point"]],
+                   test: [["var(--live)", "Pressed at least once"]], lighting: [], settings: [] }[st.page];
   $("board-legend").innerHTML = legend.map(([c, t]) => `<span style="--c:${c}">${t}</span>`).join("");
 }
 
@@ -504,9 +594,13 @@ function renderPanel() {
 function render() { renderTop(); renderBoard(); renderPanel(); }
 
 /* ---------- pages ---------- */
+const WIRELESS = [[0, "BT 1", "Fn + E"], [1, "BT 2", "Fn + R"], [2, "BT 3", "Fn + T"], [5, "2.4G", "Fn + Y"], [6, "USB", "Fn + U"]];
+const pctMark = (pct, c, label) => `<div class="mark" style="top:${pct}%;--c:${c}"><span>${label}</span></div>`;
+
 const PAGES = {
-  home() {
-    const t = st.tester, connected = st.kb && !st.kb.demo;
+  device() {
+    const connected = st.kb && !st.kb.demo, p = st.power, radioOk = st.info && st.info.proto >= 4;
+    const mode = st.radio ? st.radio.mode : null;
     return `<div class="cols">
       <div class="card">
         <div class="eyebrow">Keyboard</div>
@@ -514,9 +608,7 @@ const PAGES = {
         <dl class="kv">
           <dt>Firmware</dt><dd>${st.info ? "open firmware " + st.info.version : "-"}</dd>
           <dt>Board ID</dt><dd>${st.info ? st.info.devId + (st.info.devId === 2307 ? " (FUN60 Ultra)" : "") : "-"}</dd>
-          <dt>Connection</dt><dd>${connected ? "USB, vendor interface" : "demo, nothing sent"}</dd>
-          <dt>Battery</dt><dd id="battery">${batteryText()}</dd>
-          <dt>Sending over</dt><dd id="radio">${radioText()}</dd>
+          <dt>Link to this page</dt><dd>${connected ? "USB, vendor interface" : "demo, nothing sent"}</dd>
           <dt>Layout</dt><dd>61 keys, 60% ANSI</dd>
         </dl>
         <div class="row">
@@ -526,23 +618,26 @@ const PAGES = {
         <p class="note">The browser asks you to pick the keyboard once; after that it reconnects by itself.</p>
       </div>
       <div class="card">
-        <div class="eyebrow">Double-press check</div>
-        <h2>Key tester</h2>
-        <p>Type or hammer keys here. A key pressed again less than 30 ms after its release counts as a double, the fault the open firmware was written to fix.</p>
-        <p class="note">Fn never reaches the computer, so it doesn't show here; hold Fn and press 1 and you should see F1. On the board above, Fn lights up when connected.</p>
-        <div class="stats">
-          <div class="stat"><b>${t.presses}</b><span>presses</span></div>
-          <div class="stat ${t.doubles ? "alert" : ""}"><b>${t.doubles}</b><span>doubles</span></div>
-          <div class="stat"><b>${t.presses ? (100 * t.doubles / t.presses).toFixed(1) + "%" : "-"}</b><span>double rate</span></div>
+        <div class="eyebrow">Battery</div>
+        <div class="progress"><b id="battery-pct">${p && p.percent ? p.percent + "%" : "-"}</b><span class="muted" id="battery">${batteryText()}</span></div>
+        <div class="meter"><b id="battery-bar" style="width:${p && p.percent ? p.percent : 0}%;background:${p && p.percent && p.percent < 20 ? "var(--bad)" : "var(--live)"}"></b></div>
+        <p class="note">On the keyboard: hold Fn + Space to show the level on Esc. The board doesn't sleep yet, so don't leave it on battery for days.</p>
+      </div>
+      <div class="card wide">
+        <div class="row" style="justify-content:space-between"><div><div class="eyebrow">Connection</div><h2>Sending keys over</h2></div>
+          <span class="muted" id="radio">${radioText()}</span></div>
+        <div class="modes" role="group" aria-label="Connection mode">${WIRELESS.map(([m, n, k]) =>
+          `<button class="mode" data-mode="${m}" aria-pressed="${mode === m}" ${radioOk ? "" : "disabled"}>${n}<small>${k}</small></button>`).join("")}</div>
+        <div class="row">
+          <button class="btn" id="pair" ${radioOk && mode !== null && mode !== 6 ? "" : "disabled"}>Pair ${mode !== null && mode !== 6 ? MODES[mode] : "(pick a wireless mode)"}</button>
+          <span class="note">${radioOk ? "Same as the Fn keys; pairing is the same as holding the key for 3 s. USB needs the cable in. This page only talks over USB, so it stays connected while the keys go wireless." : "Switching from here needs firmware v0.08 or newer; the Fn keys always work."}</span>
         </div>
-        <ul class="log">${t.log.map(l => `<li class="${l.dbl ? "dbl" : ""}"><span class="t">${l.at}</span><span>${esc(l.text)}</span></li>`).join("") || '<li><span class="t">-</span><span class="muted">No presses yet</span></li>'}</ul>
-        <div class="row"><button class="btn" id="tester-reset">Reset</button></div>
       </div>
     </div>`;
   },
 
-  remap() {
-    const sel = [...st.sel].map(s => kcShort(st.map[0][s]));
+  keys() {
+    const sel = [...st.sel].map(s => kcShort(st.map[st.layer][s] || st.map[0][s]));
     const q = st.query.toLowerCase();
     const list = KC.filter(k => q ? (k.name + " " + k.short).toLowerCase().includes(q) : k.cat === st.cat);
     const noFn = !st.map[0].includes(0x01);
@@ -553,13 +648,20 @@ const PAGES = {
             <button id="layer-0" aria-pressed="${st.layer === 0}">Base layer</button>
             <button id="layer-1" class="fn" aria-pressed="${st.layer === 1}">Fn layer</button>
           </div>
-          <span class="muted">${sel.length ? `${sel.length} selected: ${esc(sel.join(", "))}` : "Click keys to select; Shift-click adds"}</span>
+          <label class="toggle"><input type="checkbox" id="press-select" ${st.pressSelect ? "checked" : ""}> Press to select</label>
         </div>
         <p>${st.layer === 0 ? "What each key sends normally." : "What each key sends while Fn is held. Keys left empty send their base-layer key."}</p>
+        <p class="muted">${sel.length ? `${sel.length} selected: ${esc(sel.join(", "))}` : st.pressSelect ? "Press keys on the keyboard to select them." : "Click a key, Shift-click to add, or drag a box over several."}</p>
         ${noFn ? '<p style="color:var(--warn)">No key is mapped to Fn, so the Fn layer can\'t be reached. Put Fn back on a key.</p>' : ""}
+        <div class="row">
+          <button class="btn" id="sel-all">Select all</button>
+          <button class="btn" id="sel-none" ${sel.length ? "" : "disabled"}>Clear selection</button>
+          <button class="btn" id="swap" ${sel.length === 2 ? "" : "disabled"} title="Select exactly two keys">Swap two</button>
+        </div>
         <div class="row">
           <button class="btn" id="to-default" ${sel.length ? "" : "disabled"}>Reset to default</button>
           <button class="btn" id="to-none" ${sel.length ? "" : "disabled"}>${st.layer ? "Clear (use base)" : "Disable key"}</button>
+          <button class="btn" id="wasd" title="Fn + W A S D send the arrow keys">Fn + WASD = arrows</button>
         </div>
       </div>
       <div class="card picker">
@@ -567,6 +669,40 @@ const PAGES = {
         <input class="search" id="kc-search" type="search" placeholder="Search keys, e.g. F13, volume, home" value="${esc(st.query)}">
         <div class="cats" role="group" aria-label="Key categories">${CATS.map(c => `<button data-cat="${c}" aria-pressed="${!q && c === st.cat}">${c}</button>`).join("")}</div>
         <div class="chips">${list.map(k => `<button class="chip" data-code="${k.code}" ${sel.length ? "" : "disabled"} title="${esc(k.name)}">${esc(k.short)}<small>${k.code === 1 ? "layer" : "0x" + k.code.toString(16).padStart(2, "0")}</small></button>`).join("")}</div>
+      </div>
+    </div>`;
+  },
+
+  travel() {
+    const c = st.cfg, old = st.info && st.info.proto < 5, k = KEY_BY_SITE.get(st.focus);
+    return `<div class="cols">
+      <div class="card">
+        <div class="eyebrow">All keys</div>
+        <h2>Actuation</h2>
+        ${old ? `<p>Needs firmware v0.12. This one uses fixed thresholds for mechanical switches.</p>` : `
+        <label class="field" for="th-press"><span>Press at <b>${c.pressPct} %</b></span>
+          <input type="range" id="th-press" min="10" max="95" step="1" value="${c.pressPct}"></label>
+        <label class="field" for="th-release"><span>Release under <b>${c.releasePct} %</b></span>
+          <input type="range" id="th-release" min="5" max="90" step="1" value="${c.releasePct}"></label>
+        <p>Percent of each key's travel. Every key learns its own: the top is where it rests, the bottom is the deepest it has gone (at least 400 counts below the top until you bottom it out once). Mechanical switches jump straight from 0 to 100 %, so this matters for magnetic ones. The keyboard forgets the learned travel when it powers off; press each key down fully once after plugging in.</p>`}
+      </div>
+      <div class="card">
+        <div class="eyebrow">Double-press fix</div>
+        <h2>Release hold-off</h2>
+        <label class="field" for="db"><span>Hold-off <b>${c.debounce} ms</b></span>
+          <input type="range" id="db" min="0" max="20" step="1" value="${c.debounce}"></label>
+        <p>A press registers at once. A release only counts once the key has stayed up this long, so a bouncing contact can't send a second press. 8 ms gave 0 doubles in 120 hard taps on mechanical switches; magnetic switches don't bounce, so 0 is fine for them.</p>
+      </div>
+      <div class="card wide">
+        <div class="row" style="justify-content:space-between"><div><div class="eyebrow">Live, click a key above to pick it</div><h2>${esc(kcShort(st.map[0][st.focus]))} travel</h2></div>
+          <span class="mono muted" id="tv-nums">-</span></div>
+        <div class="travel">
+          <div class="shaft" aria-hidden="true"><div class="fill" id="tv-fill" style="height:0"></div>
+            ${old ? "" : pctMark(c.pressPct, "var(--warn)", "press") + pctMark(c.releasePct, "var(--live)", "release")}</div>
+          <canvas class="trace" id="tv-trace" aria-label="Travel over the last few seconds"></canvas>
+        </div>
+        <p class="note">Raw is the sensor reading (12-bit ADC counts); it falls as the key goes down. This page learns rest and bottom from what it has seen since connecting, the same way the keyboard does.${k ? "" : " This key isn't on the layout."}</p>
+        <div class="row"><button class="btn" id="tv-relearn">Forget learned travel (this page)</button></div>
       </div>
     </div>`;
   },
@@ -594,25 +730,29 @@ const PAGES = {
     </div>`;
   },
 
-  performance() {
-    const c = st.cfg;
+  test() {
+    const t = st.tester, n = KEYS.filter(k => st.tested.has(k.site)).length;
     return `<div class="cols">
       <div class="card">
-        <div class="eyebrow">Double-press fix</div>
-        <h2>Release hold-off</h2>
-        <label class="field" for="db"><span>Hold-off <b>${c.debounce} ms</b></span>
-          <input type="range" id="db" min="0" max="20" step="1" value="${c.debounce}"></label>
-        <p>A press registers the moment the switch closes. A release only counts once the switch has stayed open this long, so a bouncing contact can't send a second press. At 8 ms your test showed 0 doubles in 120 hard taps; 0 turns it off.</p>
+        <div class="eyebrow">Every switch</div>
+        <h2>Press test</h2>
+        <div class="progress"><b>${n} / ${KEYS.length}</b><span class="muted">keys seen pressed</span></div>
+        <div class="meter"><b style="width:${100 * n / KEYS.length}%;background:var(--live)"></b></div>
+        <p>Press every key once. Each one turns green on the board when the keyboard reports it, Fn included. A key that stays grey isn't read: check the switch is seated, then look at its raw value on the Travel page.</p>
+        <div class="row"><button class="btn" id="tested-reset">Start over</button></div>
       </div>
       <div class="card">
-        <div class="eyebrow">Switch sensing</div>
-        <h2>Actuation</h2>
-        ${st.info && st.info.proto < 5 ? `<p>Needs firmware v0.12. This one uses fixed thresholds for mechanical switches.</p>` : `
-        <label class="field" for="th-press"><span>Press at <b>${c.pressPct} %</b></span>
-          <input type="range" id="th-press" min="10" max="95" step="1" value="${c.pressPct}"></label>
-        <label class="field" for="th-release"><span>Release under <b>${c.releasePct} %</b></span>
-          <input type="range" id="th-release" min="5" max="90" step="1" value="${c.releasePct}"></label>
-        <p>Percent of each key's travel. Every key learns its own travel as you use it: the top is where it rests, the bottom is the deepest it has gone (at least 400 counts below the top until you bottom it out once). Works for magnetic and mechanical switches, mixed. Mechanical switches jump straight from 0 to 100 %, so this only matters for magnetic ones. The keyboard forgets the learned travel when it powers off; press each key down fully once after plugging in for the most accurate actuation.</p>`}
+        <div class="eyebrow">Double-press check</div>
+        <h2>Key tester</h2>
+        <p>Type or hammer keys while this page is open. A key pressed again less than 30 ms after its release counts as a double.</p>
+        <div class="stats">
+          <div class="stat"><b>${t.presses}</b><span>presses</span></div>
+          <div class="stat ${t.doubles ? "alert" : ""}"><b>${t.doubles}</b><span>doubles</span></div>
+          <div class="stat"><b>${t.presses ? (100 * t.doubles / t.presses).toFixed(1) + "%" : "-"}</b><span>double rate</span></div>
+        </div>
+        <ul class="log">${t.log.map(l => `<li class="${l.dbl ? "dbl" : ""}"><span class="t">${l.at}</span><span>${esc(l.text)}</span></li>`).join("") || '<li><span class="t">-</span><span class="muted">No presses yet</span></li>'}</ul>
+        <div class="row"><button class="btn" id="tester-reset">Reset</button></div>
+        <p class="note">This one measures what the computer receives, so Fn doesn't show; Fn + 1 shows as F1.</p>
       </div>
     </div>`;
   },
@@ -643,26 +783,56 @@ const PAGES = {
         ${st.confirmBoot ? `<div class="confirm"><b>Restart into the bootloader?</b><span class="muted">The keyboard disconnects and waits for ry-flash.</span><div class="row"><button class="btn danger" id="boot-yes">Restart it</button><button class="btn" id="boot-no">Cancel</button></div></div>`
           : `<div class="row"><button class="btn danger" id="boot" ${connected ? "" : "disabled"}>Restart into bootloader</button></div>`}
       </div>
+      <div class="card">
+        <div class="eyebrow">This page</div>
+        <h2>Appearance</h2>
+        <div class="seg" role="group" aria-label="Theme">${["auto", "light", "dark"].map(t => `<button data-theme-pick="${t}" aria-pressed="${theme() === t}">${t[0].toUpperCase() + t.slice(1)}</button>`).join("")}</div>
+      </div>
     </div>`;
   },
 };
 
 const BIND = {
-  home(p) {
+  device(p) {
     p.querySelector("#connect")?.addEventListener("click", connect);
     p.querySelector("#use-demo")?.addEventListener("click", () => attach(demo()));
-    p.querySelector("#tester-reset").addEventListener("click", () => { st.tester = { presses: 0, doubles: 0, up: new Map(), down: new Map(), log: [] }; render(); });
+    const go = async (mode, pair) => {
+      try { await st.kb.setRadio(mode, pair); st.radio = await st.kb.radio(); st.error = ""; } catch (e) { st.error = e.message; }
+      render();
+    };
+    p.querySelectorAll(".mode").forEach(b => b.onclick = () => go(+b.dataset.mode, false));
+    p.querySelector("#pair").onclick = () => go(st.radio.mode, true);
   },
-  remap(p) {
+  keys(p) {
     p.querySelector("#layer-0").onclick = () => { st.layer = 0; render(); };
     p.querySelector("#layer-1").onclick = () => { st.layer = 1; render(); };
-    const assign = code => { st.sel.forEach(s => { st.map[st.layer][s] = code; }); push("map"); render(); };
+    p.querySelector("#press-select").onchange = e => { st.pressSelect = e.target.checked; renderPanel(); };
+    const edit = f => { f(); push("map"); render(); };
+    const assign = code => edit(() => st.sel.forEach(s => { st.map[st.layer][s] = code; }));
     p.querySelectorAll(".chip").forEach(b => b.onclick = () => assign(+b.dataset.code));
     p.querySelectorAll(".cats button").forEach(b => b.onclick = () => { st.cat = b.dataset.cat; st.query = ""; renderPanel(); });
     const q = p.querySelector("#kc-search");
     q.oninput = () => { st.query = q.value; renderPanel(); const n = $("kc-search"); n.focus(); n.setSelectionRange(n.value.length, n.value.length); };
-    p.querySelector("#to-default").onclick = () => { st.sel.forEach(s => { st.map[st.layer][s] = (st.layer ? FN_DEFAULT : BASE_DEFAULT)[s]; }); push("map"); render(); };
+    p.querySelector("#sel-all").onclick = () => { KEYS.forEach(k => st.sel.add(k.site)); render(); };
+    p.querySelector("#sel-none").onclick = () => { st.sel.clear(); render(); };
+    p.querySelector("#swap").onclick = () => edit(() => {
+      const [a, b] = [...st.sel], l = st.map[st.layer];
+      [l[a], l[b]] = [l[b], l[a]];
+    });
+    p.querySelector("#to-default").onclick = () => edit(() => st.sel.forEach(s => { st.map[st.layer][s] = (st.layer ? FN_DEFAULT : BASE_DEFAULT)[s]; }));
     p.querySelector("#to-none").onclick = () => assign(0);
+    p.querySelector("#wasd").onclick = () => edit(() => {
+      [["KeyW", 0x52], ["KeyA", 0x50], ["KeyS", 0x51], ["KeyD", 0x4F]].forEach(([c, code]) => { st.map[1][SITE_BY_CODE.get(c)] = code; });
+      st.layer = 1;
+    });
+  },
+  travel(p) {
+    const bindRange = (id, key, unit, check) => { const r = p.querySelector("#" + id); r.oninput = () => {
+      st.cfg[key] = +r.value; check && check(); r.previousElementSibling.querySelector("b").textContent = `${st.cfg[key]} ${unit}`; push("cfg"); }; };
+    const gap = () => { if (st.cfg.releasePct > st.cfg.pressPct - 5) st.cfg.releasePct = Math.max(5, st.cfg.pressPct - 5); renderPanel(); };
+    bindRange("db", "debounce", "ms");
+    if (p.querySelector("#th-press")) { bindRange("th-press", "pressPct", "%", gap); bindRange("th-release", "releasePct", "%", gap); }
+    p.querySelector("#tv-relearn").onclick = () => { st.cal = newCal(); st.trace = []; };
   },
   lighting(p) {
     const set = (k, v) => { st.cfg[k] = v; push("cfg"); };
@@ -671,12 +841,9 @@ const BIND = {
     p.querySelector("#led-level").oninput = e => { set("level", +e.target.value); e.target.previousElementSibling.querySelector("b").textContent = `${+e.target.value + 1} / 5`; };
     p.querySelector("#led-color").oninput = e => { const v = e.target.value; st.cfg.r = parseInt(v.slice(1, 3), 16); st.cfg.g = parseInt(v.slice(3, 5), 16); st.cfg.b = parseInt(v.slice(5, 7), 16); push("cfg"); };
   },
-  performance(p) {
-    const bindRange = (id, key, unit, check) => { const r = p.querySelector("#" + id); r.oninput = () => {
-      st.cfg[key] = +r.value; check && check(); r.previousElementSibling.querySelector("b").textContent = `${st.cfg[key]} ${unit}`; push("cfg"); }; };
-    const gap = () => { if (st.cfg.releasePct > st.cfg.pressPct - 5) { st.cfg.releasePct = Math.max(5, st.cfg.pressPct - 5); renderPanel(); } };
-    bindRange("db", "debounce", "ms");
-    if (p.querySelector("#th-press")) { bindRange("th-press", "pressPct", "%", gap); bindRange("th-release", "releasePct", "%", gap); }
+  test(p) {
+    p.querySelector("#tested-reset").onclick = () => { st.tested.clear(); render(); };
+    p.querySelector("#tester-reset").onclick = () => { st.tester = { presses: 0, doubles: 0, up: new Map(), down: new Map(), log: [] }; render(); };
   },
   settings(p) {
     p.querySelector("#save2").onclick = save;
@@ -705,6 +872,7 @@ const BIND = {
     const boot = p.querySelector("#boot"); if (boot) boot.onclick = () => { st.confirmBoot = true; renderPanel(); };
     const yes = p.querySelector("#boot-yes"); if (yes) yes.onclick = async () => { st.confirmBoot = false; await st.kb.bootloader(); attach(demo()); };
     const no = p.querySelector("#boot-no"); if (no) no.onclick = () => { st.confirmBoot = false; renderPanel(); };
+    p.querySelectorAll("[data-theme-pick]").forEach(b => b.onclick = () => { setTheme(b.dataset.themePick); renderPanel(); });
   },
 };
 
@@ -722,7 +890,7 @@ async function revert() {
 
 /* ---------- key tester (browser key events, so it measures what the computer receives) ---------- */
 addEventListener("keydown", e => {
-  if (st.page !== "home" || e.repeat || e.target.closest("input, textarea")) return;
+  if (st.page !== "test" || e.repeat || e.target.closest("input, textarea")) return;
   if (!e.ctrlKey && !e.metaKey && !e.altKey) e.preventDefault();   /* keep browser shortcuts */
   const t = st.tester, now = performance.now(), last = t.up.get(e.code);
   const gap = last === undefined ? null : now - last, dbl = gap !== null && gap < 30;
@@ -732,9 +900,9 @@ addEventListener("keydown", e => {
   t.log.length = Math.min(t.log.length, 40);
   renderPanel();
 });
-addEventListener("keyup", e => { if (st.page === "home") st.tester.up.set(e.code, performance.now()); });
+addEventListener("keyup", e => { if (st.page === "test") st.tester.up.set(e.code, performance.now()); });
 
-/* ---------- live loop: pressed keys, sensor bars, LED preview ---------- */
+/* ---------- live loop: pressed keys, travel, LED preview ---------- */
 const reduced = matchMedia("(prefers-reduced-motion: reduce)");
 function hue(h) {
   const s = Math.floor(h / 43) % 6, f = (h - Math.floor(h / 43) * 43) * 6;
@@ -751,24 +919,56 @@ function ledFrame(t) {
   const ma = sum * 20 / 255 * (61 / KEYS.length);
   return { out, ma: Math.min(ma, LED_BUDGET_MA), capped: ma > LED_BUDGET_MA ? LED_BUDGET_MA / ma : 1 };
 }
-let polling = false;
+
+const TRACE_MS = 4000;
+function drawTrace(now) {
+  const cv = $("tv-trace"); if (!cv) return;
+  const w = cv.clientWidth, h = cv.clientHeight, dpr = devicePixelRatio || 1;
+  if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; }
+  const g = cv.getContext("2d"), css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
+  g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const y = pct => 6 + (h - 12) * pct / 100;
+  if (!(st.info && st.info.proto < 5)) for (const [pct, c] of [[st.cfg.pressPct, "--warn"], [st.cfg.releasePct, "--live"]]) {
+    g.strokeStyle = col(c); g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, y(pct)); g.lineTo(w, y(pct)); g.stroke();
+  }
+  g.setLineDash([]); g.strokeStyle = col("--accent"); g.lineWidth = 2; g.beginPath();
+  st.trace.forEach(([t, pct], i) => { const x = w - (now - t) * w / TRACE_MS; i ? g.lineTo(x, y(pct)) : g.moveTo(x, y(pct)); });
+  g.stroke();
+}
+
+let polling = false, lastPressed = new Set();
 async function tick(t) {
   if (st.kb && !polling && !st.pollFailed) {
     polling = true;
     try {
-      if (st.page === "performance") st.raw = await st.kb.raw();
+      if (st.page === "travel") { st.raw = await st.kb.raw(); learn(st.raw); }
       const s = await st.kb.state(); st.pressed = s.pressed;
       if (st.info && st.info.proto >= 2 && !(t - st.powerAt < 2000)) {         /* v0.06+: GET_POWER */
         st.powerAt = t; st.power = await st.kb.power();
         const b = $("battery"); if (b) b.textContent = batteryText();
-        if (st.info.proto >= 3) { st.radio = await st.kb.radio(); const r = $("radio"); if (r) r.textContent = radioText(); }
+        const bp = $("battery-pct"), bb = $("battery-bar"), pc = st.power.percent;
+        if (bp) { bp.textContent = pc ? pc + "%" : "-"; bb.style.width = pc + "%"; bb.style.background = pc && pc < 20 ? "var(--bad)" : "var(--live)"; }
+        if (st.info.proto >= 3) {
+          const was = st.radio && st.radio.mode;
+          st.radio = await st.kb.radio(); const r = $("radio"); if (r) r.textContent = radioText();
+          if (st.page === "device" && st.radio.mode !== was) renderPanel();   /* changed with the Fn keys */
+        }
       }
     } catch (e) { st.error = e.message; st.pollFailed = true; renderTop(); }   /* until reconnect */
     polling = false;
   }
-  const keys = document.querySelectorAll(".key");
+  /* new presses: the press test, and press-to-select on the Keys page */
+  let fresh = false;
+  for (const s of st.pressed) if (!lastPressed.has(s) && KEY_BY_SITE.has(s)) {
+    if (!st.tested.has(s)) { st.tested.add(s); fresh = st.page === "test"; }
+    if (st.page === "keys" && st.pressSelect) { st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s); fresh = true; }
+  }
+  lastPressed = new Set(st.pressed);
+  if (fresh) render();
+
   const led = st.page === "lighting" ? ledFrame(reduced.matches ? 0 : t) : null;
-  keys.forEach(el => {
+  const perf = st.page === "travel" && st.raw;
+  document.querySelectorAll(".key").forEach(el => {
     const s = +el.dataset.site;
     el.classList.toggle("live", st.pressed.has(s));
     const cap = el.firstElementChild;
@@ -776,11 +976,20 @@ async function tick(t) {
       const [r, g, b] = led.out.get(s).map(x => Math.round(Math.min(255, x * led.capped * 2.2)));
       cap.style.setProperty("--led", `rgb(${r},${g},${b})`); cap.style.setProperty("--glow", st.cfg.on ? 0.55 : 0);
     } else cap.style.setProperty("--glow", 0);
-    if (st.page === "performance" && st.raw) {
-      const d = Math.max(0, Math.min(1, (1600 - st.raw[s]) / 1500));
-      el.querySelector(".bar").style.setProperty("--d", d.toFixed(3));
-    }
+    if (perf) {
+      const tv = travel(s);
+      el.querySelector(".bar").style.setProperty("--d", (tv.pct / 100).toFixed(3));
+      el.querySelector(".lg2").textContent = tv.ok ? Math.round(tv.pct) + "%" : "-";
+      el.classList.toggle("over", tv.ok && tv.pct >= st.cfg.pressPct);
+    } else el.classList.remove("over");
   });
+  if (perf && $("tv-fill")) {
+    const tv = travel(st.focus);
+    st.trace.push([t, tv.pct]); while (st.trace.length && t - st.trace[0][0] > TRACE_MS) st.trace.shift();
+    $("tv-fill").style.height = tv.pct + "%";
+    $("tv-nums").textContent = tv.ok ? `raw ${tv.v}  rest ${tv.rest}  bottom ${tv.bottom}  ${tv.pct.toFixed(0)} %` : `raw ${tv.v}, no switch read here yet`;
+    drawTrace(t);
+  }
   if (led && $("ma")) { $("ma").textContent = `${Math.round(led.ma)} mA`; $("ma-bar").style.width = (100 * led.ma / LED_BUDGET_MA) + "%"; }
   requestAnimationFrame(tick);
 }

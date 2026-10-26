@@ -1,0 +1,8 @@
+// FUN60 Studio on https://driver.vivlos.dev : a Worker that only serves site/ (built by serve.sh).
+// Deploy with `driver/serve.sh deploy`.
+{
+  "name": "fun60-studio",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./site" },
+  "routes": [{ "pattern": "driver.vivlos.dev", "custom_domain": true }]
+}
