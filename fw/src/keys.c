@@ -68,6 +68,7 @@ void keys_init(keys_t *k)
     k->raw_pressed[i] = k->pressed[i] = 0;
     k->rest[i] = 0;
     k->bottom[i] = 0xFFFF;
+    k->pct[i] = k->ext[i] = k->rt_live[i] = 0;
   }
   k->winlock = 0;
   k->actions = 0;
@@ -87,24 +88,88 @@ static uint8_t code_at(unsigned i, int fn)
   return fn && settings.keymap[1][i] != KC_NO ? settings.keymap[1][i] : settings.keymap[0][i];
 }
 
+void keys_relearn(keys_t *k)
+{
+  for (unsigned i = 0; i < SCAN_SITES; i++) { k->rest[i] = 0; k->bottom[i] = 0xFFFF; }
+}
+
+uint16_t keys_bottom(const keys_t *k, unsigned i)
+{
+  unsigned rest = k->rest[i], bottom = k->bottom[i], span = settings.span[i];
+  if (span && rest > span && rest - span < bottom) bottom = rest - span;
+  if (bottom + KEY_MIN_TRAVEL > rest) bottom = rest > KEY_MIN_TRAVEL ? rest - KEY_MIN_TRAVEL : 0;
+  return (uint16_t)bottom;
+}
+
+unsigned keys_store_travel(const keys_t *k)
+{
+  unsigned n = 0;
+  for (unsigned i = 0; i < SCAN_SITES; i++) {
+    unsigned rest = k->rest[i], bottom = k->bottom[i];
+    if (settings.keymap[0][i] == KC_NO || rest < KEY_REST_MIN || rest > KEY_REST_MAX ||
+        bottom + KEY_MIN_TRAVEL > rest) continue;         /* not bottomed out this session */
+    settings.span[i] = (uint16_t)(rest - bottom);
+    n++;
+  }
+  return n;
+}
+
+/* travel of site i in percent with the dead zones applied; learns rest and bottom */
+static unsigned travel_pct(keys_t *k, unsigned i, uint16_t v)
+{
+  if (v > k->rest[i]) k->rest[i] = v;
+  if (v < k->bottom[i]) k->bottom[i] = v;
+  unsigned rest = k->rest[i], bottom = keys_bottom(k, i);
+  unsigned pct = rest > bottom ? (rest - v) * 100u / (rest - bottom) : 0;   /* rest >= v */
+  if (pct > 100) pct = 100;                                /* below a saved bottom */
+  if (pct <= settings.top_dz) return 0;
+  if (pct + settings.bottom_dz >= 100) return 100;
+  return pct;
+}
+
+/* threshold or rapid-trigger state of site i at travel p (percent) */
+static uint8_t key_state(keys_t *k, unsigned i, unsigned p)
+{
+  unsigned press = settings.act[i] ? settings.act[i] : settings.press_pct;
+  unsigned gap = settings.press_pct - settings.release_pct;   /* sanitize keeps it >= 5 */
+  unsigned release = press > gap ? press - gap : press / 2;
+  unsigned down = settings.rt_down[i], up = settings.rt_up[i] ? settings.rt_up[i] : down;
+  uint8_t on = k->raw_pressed[i];
+
+  if (!down) return on ? p > release : p >= press;        /* plain threshold with hysteresis */
+
+  if (p == 0 || (!settings.rt_continuous && p <= release)) k->rt_live[i] = 0;
+  if (on) {
+    if (p > k->ext[i]) k->ext[i] = (uint8_t)p;
+    if (k->rt_live[i] && p + up > k->ext[i]) return 1;    /* hasn't risen rt_up from the deepest */
+    if (!k->rt_live[i] && p > release) return 1;          /* above the release point: reset */
+    k->ext[i] = (uint8_t)p;
+    return 0;
+  }
+  if (p < k->ext[i]) k->ext[i] = (uint8_t)p;
+  if (k->rt_live[i] ? p >= k->ext[i] + down : p >= press) {
+    k->rt_live[i] = 1;
+    k->ext[i] = (uint8_t)p;
+    return 1;
+  }
+  return 0;
+}
+
 int keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms)
 {
-  uint8_t before[SCAN_SITES];
+  uint8_t before[SCAN_SITES], hold[SCAN_SITES];
   int changed = 0;
 
   for (unsigned i = 0; i < SCAN_SITES; i++) {
-    uint16_t v = raw[i];
-    if (v > k->rest[i]) k->rest[i] = v;
-    if (v < k->bottom[i]) k->bottom[i] = v;
-    unsigned rest = k->rest[i], bottom = k->bottom[i];
-    if (bottom + KEY_MIN_TRAVEL > rest) bottom = rest > KEY_MIN_TRAVEL ? rest - KEY_MIN_TRAVEL : 0;
-    unsigned pct = rest > bottom ? (rest - v) * 100u / (rest - bottom) : 0;   /* rest >= v */
-    k->raw_pressed[i] = k->raw_pressed[i] ? pct > settings.release_pct : pct >= settings.press_pct;
-    if (rest < KEY_REST_MIN || rest > KEY_REST_MAX || settings.keymap[0][i] == KC_NO)
+    unsigned p = travel_pct(k, i, raw[i]);
+    k->pct[i] = (uint8_t)p;
+    k->raw_pressed[i] = key_state(k, i, p);
+    if (k->rest[i] < KEY_REST_MIN || k->rest[i] > KEY_REST_MAX || settings.keymap[0][i] == KC_NO)
       k->raw_pressed[i] = 0;
+    hold[i] = settings.rt_down[i] ? 0 : settings.debounce_ms;  /* rapid trigger: no release hold-off */
     before[i] = k->pressed[i];
   }
-  debounce_process(&k->db, k->raw_pressed, now_ms, settings.debounce_ms, k->pressed);
+  debounce_process(&k->db, k->raw_pressed, now_ms, hold, k->pressed);
 
   int fn = fn_held(k);
   for (unsigned i = 0; i < SCAN_SITES; i++) {

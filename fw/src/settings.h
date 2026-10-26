@@ -14,7 +14,8 @@
 
 #define SETTINGS_ADDR     0x08027000u
 #define SETTINGS_MAGIC    0x53363046u    /* "F06S" */
-#define SETTINGS_VERSION  4u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12) */
+#define SETTINGS_VERSION  5u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
+                                          * 5: per-key actuation, rapid trigger, dead zones, saved travel (v0.13) */
 
 typedef struct {
   uint8_t  keymap[2][SCAN_SITES];        /* [0] base, [1] Fn (KC_NO = base key) */
@@ -22,6 +23,13 @@ typedef struct {
   uint8_t  debounce_ms;                  /* release hold-off, debounce.h */
   uint8_t  press_pct, release_pct;       /* travel thresholds in percent, keys.h */
   uint8_t  conn_mode;                    /* last wireless mode (RADIO_BT1..3, RADIO_24G), Fn keys */
+  uint8_t  top_dz, bottom_dz;            /* dead zones, percent of travel: the top reads 0 %, the bottom 100 % */
+  uint8_t  rt_continuous;                /* rapid trigger stays live up to the top dead zone, not just past
+                                          * the actuation point */
+  uint8_t  act[SCAN_SITES];              /* per-key actuation point in percent, 0 = press_pct */
+  uint8_t  rt_down[SCAN_SITES];          /* rapid trigger: percent down that presses again, 0 = off */
+  uint8_t  rt_up[SCAN_SITES];            /* percent up that releases, 0 = same as rt_down */
+  uint16_t span[SCAN_SITES];             /* saved travel (rest - bottom) in counts, 0 = learn it */
 } settings_t;
 
 extern settings_t settings;

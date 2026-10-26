@@ -13,6 +13,13 @@
  *   table to 0.01 mm; we don't)
  * A site only counts once its rest is inside stock's KEY_REST_MIN..KEY_REST_MAX window, so a
  * key held since boot, an empty socket (reads 0-2) or a dead sensor never types.
+ * Per key (settings.h, v0.13): its own actuation point, rapid trigger (after the first actuation
+ * a key releases as soon as it rises rt_up percent from its deepest point and presses again
+ * when it falls rt_down from its highest, anywhere below the release point, or anywhere below
+ * the top dead zone with rt_continuous), and a saved travel span: rest is still learned live,
+ * bottom = rest - span, so a calibrated key is exact from the first press and a key held
+ * since boot still reads 0 % until it is let go.
+ * Dead zones: travel inside top_dz reads 0 %, inside bottom_dz reads 100 %.
  * ponytail: rest only ever rises, so a magnetic sensor drifting down (temperature) reads as a
  * little travel; add stock-style idle re-averaging if a key ever triggers on its own.
  */
@@ -58,6 +65,9 @@ typedef struct {
   uint16_t rest[SCAN_SITES];         /* highest reading seen (key up) */
   uint16_t bottom[SCAN_SITES];       /* lowest reading seen (key down) */
   uint8_t  pressed[SCAN_SITES];      /* after debounce */
+  uint8_t  pct[SCAN_SITES];          /* travel now, percent, dead zones applied */
+  uint8_t  ext[SCAN_SITES];          /* rapid trigger: deepest point while down, highest while up */
+  uint8_t  rt_live[SCAN_SITES];      /* rapid trigger engaged (actuated since the last reset) */
   uint8_t  actions;                  /* LED_ACT_* pressed and not yet taken */
   uint8_t  winlock;                  /* KC_WINLOCK toggles it; GUI modifiers dropped */
   debounce_t db;
@@ -74,6 +84,13 @@ void keys_report(const keys_t *k, uint8_t report[8]);
 uint16_t keys_consumer(const keys_t *k);
 /* Lighting actions (LED_ACT_*) pressed since the last call. */
 uint8_t keys_take_actions(keys_t *k);
+/* Effective bottom of site i (learned, or rest - saved span), as keys_update uses it. */
+uint16_t keys_bottom(const keys_t *k, unsigned i);
+/* Save the travel each key has shown since power-on (bottomed out at least KEY_MIN_TRAVEL
+ * below rest) into settings.span; returns how many keys were stored. SAVE writes it to flash. */
+unsigned keys_store_travel(const keys_t *k);
+/* Forget what was learned since power-on (rest and bottom start again from the next frame). */
+void keys_relearn(keys_t *k);
 /* A key held right now whose code is in lo..hi (e.g. KC_BT1..KC_USB), or 0. */
 uint8_t keys_held(const keys_t *k, uint8_t lo, uint8_t hi);
 

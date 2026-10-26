@@ -16,6 +16,12 @@ void settings_defaults(settings_t *s)
   s->press_pct = KEY_PRESS_PCT;
   s->release_pct = KEY_RELEASE_PCT;
   s->conn_mode = RADIO_BT1;               /* last wireless mode; stock starts on Bluetooth 1 */
+  s->top_dz = s->bottom_dz = 0;
+  s->rt_continuous = 0;
+  for (unsigned i = 0; i < SCAN_SITES; i++) {
+    s->act[i] = s->rt_down[i] = s->rt_up[i] = 0;
+    s->span[i] = 0;
+  }
 }
 
 void settings_sanitize(settings_t *s)
@@ -28,6 +34,16 @@ void settings_sanitize(settings_t *s)
   if (s->press_pct > 95) s->press_pct = 95;
   if (s->release_pct + 5 > s->press_pct) s->release_pct = s->press_pct - 5;
   if (s->conn_mode > RADIO_BT3 && s->conn_mode != RADIO_24G) s->conn_mode = RADIO_BT1;
+  if (s->top_dz > 30) s->top_dz = 30;
+  if (s->bottom_dz > 30) s->bottom_dz = 30;
+  s->rt_continuous = s->rt_continuous ? 1 : 0;
+  for (unsigned i = 0; i < SCAN_SITES; i++) {
+    if (s->act[i] && s->act[i] < 5) s->act[i] = 5;        /* 0 = global; under 5 % noise could press */
+    if (s->act[i] > 100) s->act[i] = 100;
+    if (s->rt_down[i] > 50) s->rt_down[i] = 50;
+    if (s->rt_up[i] > 50) s->rt_up[i] = 50;
+    if (s->span[i] && (s->span[i] < KEY_MIN_TRAVEL || s->span[i] > KEY_REST_MAX)) s->span[i] = 0;
+  }
 }
 
 #ifndef HOST_TEST

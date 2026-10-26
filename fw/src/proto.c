@@ -34,6 +34,7 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
 
   case OP_ENTER_BOOT:
     if (q[1] == 0x55 && q[2] == 0xAA && q[3] == 0x55 && q[4] == 0xAA) st->enter_bootloader = 1;
+    if (q[1] == 'R' && q[2] == 'E' && q[3] == 'S' && q[4] == 'T') st->restart = 1;
     break;
 
   case OP_GET_RAW:
@@ -77,6 +78,7 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     settings.debounce_ms = q[14];
     settings.press_pct = q[15];
     settings.release_pct = q[16];
+    settings.top_dz = q[17]; settings.bottom_dz = q[18]; settings.rt_continuous = q[19];
     settings_sanitize(&settings);
     /* fall through - reply with what was actually stored */
   case OP_GET_CFG:
@@ -84,6 +86,44 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     r[11] = settings.led.r; r[12] = settings.led.g; r[13] = settings.led.b;
     r[14] = settings.debounce_ms;
     r[15] = settings.press_pct; r[16] = settings.release_pct;
+    r[17] = settings.top_dz; r[18] = settings.bottom_dz; r[19] = settings.rt_continuous;
+    break;
+
+  case OP_GET_KEYCFG:
+  case OP_SET_KEYCFG: {
+    uint8_t *const field[KEYCFG_FIELDS] = { settings.act, settings.rt_down, settings.rt_up };
+    unsigned f = q[1], first = q[2] * MAP_PER_PAGE, n = 0;
+    if (f < KEYCFG_FIELDS && first < SCAN_SITES) {
+      n = SCAN_SITES - first < MAP_PER_PAGE ? SCAN_SITES - first : MAP_PER_PAGE;
+      if (q[0] == OP_SET_KEYCFG) {
+        if (q[3] < n) n = q[3];
+        for (unsigned i = 0; i < n; i++) field[f][first + i] = q[8 + i];
+        settings_sanitize(&settings);
+      }
+      for (unsigned i = 0; i < n; i++) r[8 + i] = field[f][first + i];
+    }
+    r[1] = q[1]; r[2] = q[2]; r[3] = (uint8_t)n;
+    break;
+  }
+
+  case OP_GET_TRAVEL:
+    r[1] = q[1];
+    r[2] = (uint8_t)SCAN_SITES;
+    for (unsigned i = 0; st->keys && i < TRAVEL_PER_PAGE; i++) {
+      unsigned site = q[1] * TRAVEL_PER_PAGE + i;
+      if (site >= SCAN_SITES) break;
+      uint16_t rest = st->keys->rest[site], bottom = keys_bottom(st->keys, site);
+      r[8 + 4 * i] = (uint8_t)rest;   r[9 + 4 * i] = (uint8_t)(rest >> 8);
+      r[10 + 4 * i] = (uint8_t)bottom; r[11 + 4 * i] = (uint8_t)(bottom >> 8);
+      if (settings.span[site]) r[3] |= 1;
+    }
+    break;
+
+  case OP_TRAVEL:
+    if (!st->keys) break;
+    if (q[1] == 1) r[1] = (uint8_t)keys_store_travel(st->keys);
+    else if (q[1] == 2) for (unsigned i = 0; i < SCAN_SITES; i++) settings.span[i] = 0;
+    else if (q[1] == 3) keys_relearn(st->keys);
     break;
 
   case OP_SAVE:

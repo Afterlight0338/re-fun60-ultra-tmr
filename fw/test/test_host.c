@@ -69,6 +69,9 @@ int main(void)
   req(r, (const uint8_t[]){OP_ENTER_BOOT, 0x55, 0xAA, 0x55, 0xAA}, 5);
   proto_dispatch(&st, r);
   CHECK(st.enter_bootloader, "0x7F 55 AA 55 AA requests the bootloader");
+  req(r, (const uint8_t[]){OP_ENTER_BOOT, 'R', 'E', 'S', 'T'}, 5);
+  proto_dispatch(&st, r);
+  CHECK(st.restart, "0x7F R E S T requests a plain restart");
 
   for (unsigned i = 0; i < SCAN_SITES; i++) frame[i] = (uint16_t)(1000 + i);
   st.raw = frame;
@@ -189,6 +192,88 @@ int main(void)
     CHECK(rep[2] == 0, "after calibration 210 counts (26%) is no longer a press");
     f[G_] = 1990; t = 1080; STEP();
     CHECK(rep[2] == 0x0A, "410 counts (51%) of the learned travel presses");
+
+    /* per-key actuation (v0.13): G at 20 % of an 800-count travel */
+    settings_defaults(&settings); keys_init(&k);
+    SET_ALL(2400); t = 2000; STEP(); f[G_] = 1600; t = 2010; STEP(); f[G_] = 2400; t = 2020; STEP(); t = 2030; STEP();
+    settings.act[G_] = 20;
+    f[G_] = 2250; t = 2040; STEP();
+    CHECK(rep[2] == 0, "act 20 %: 150 of 800 counts (18 %) is not a press");
+    f[G_] = 2230; t = 2050; STEP();
+    CHECK(rep[2] == 0x0A, "act 20 %: 170 counts (21 %) presses");
+    f[G_] = 2340; t = 2060; STEP(); t = 2070; STEP();
+    CHECK(rep[2] == 0x0A, "act 20 %: 7 % is above its release point (20 - 15 = 5 %)");
+    f[G_] = 2370; t = 2080; STEP(); t = 2090; STEP();
+    CHECK(rep[2] == 0, "act 20 %: 3 % releases");
+
+    /* rapid trigger: 10 % down / 5 % up, the 8 ms hold-off doesn't apply */
+    settings.act[G_] = 0; settings.rt_down[G_] = 10; settings.rt_up[G_] = 5;
+    f[G_] = 2000; t = 2100; STEP();                                     /* 50 %: first actuation */
+    CHECK(rep[2] == 0x0A, "RT: first press at the actuation point");
+    f[G_] = 1760; t = 2101; STEP();                                     /* 80 % */
+    f[G_] = 1790; t = 2102; STEP();                                     /* 76 %: up 4 */
+    CHECK(rep[2] == 0x0A, "RT: rising 4 % from the deepest point stays down");
+    f[G_] = 1810; t = 2103; STEP();                                     /* 73 %: up 7 */
+    CHECK(rep[2] == 0, "RT: rising 7 % releases at once (no hold-off)");
+    f[G_] = 1880; t = 2104; STEP();                                     /* 65 % */
+    f[G_] = 1810; t = 2105; STEP();                                     /* 73 %: down 8 */
+    CHECK(rep[2] == 0, "RT: falling 8 % from the highest point is not enough");
+    f[G_] = 1790; t = 2106; STEP();                                     /* 76 %: down 11 */
+    CHECK(rep[2] == 0x0A, "RT: falling 11 % presses again, below the actuation point too");
+    f[G_] = 2230; t = 2107; STEP();                                     /* 21 % */
+    f[G_] = 2140; t = 2108; STEP();                                     /* 32 %: down 11, above release 35 */
+    CHECK(rep[2] == 0, "RT: above the release point it resets, 32 % doesn't press");
+    settings.rt_continuous = 1;
+    f[G_] = 1600; t = 2109; STEP(); f[G_] = 2230; t = 2110; STEP(); f[G_] = 2140; t = 2111; STEP();
+    CHECK(rep[2] == 0x0A, "RT continuous: 21 % -> 32 % presses again");
+    f[G_] = 2400; t = 2112; STEP(); f[G_] = 2310; t = 2113; STEP();      /* top, then 11 % */
+    CHECK(rep[2] == 0, "RT continuous: back at the top resets, 11 % from rest is no press");
+
+    /* dead zones */
+    settings.rt_down[G_] = 0; settings.rt_up[G_] = 0; settings.rt_continuous = 0;
+    settings.top_dz = 10; settings.bottom_dz = 10;
+    f[G_] = 2330; t = 2120; STEP();
+    CHECK(k.pct[G_] == 0, "top dead zone: 8 % reads 0 %");
+    f[G_] = 1650; t = 2121; STEP();
+    CHECK(k.pct[G_] == 100 && rep[2] == 0x0A, "bottom dead zone: 93 % reads 100 %");
+    f[G_] = 2400; t = 2122; STEP(); t = 2140; STEP();
+    settings.top_dz = settings.bottom_dz = 0;
+
+    /* saved travel: known from the first press after power-on */
+    CHECK(keys_store_travel(&k) >= 1 && settings.span[G_] == 800, "store travel: G's 800 counts");
+    keys_init(&k);
+    SET_ALL(2400); t = 3000; STEP();
+    f[G_] = 2190; t = 3010; STEP();
+    CHECK(rep[2] == 0, "saved 800-count travel: 210 counts (26 %) is no press after a reboot");
+    f[G_] = 1990; t = 3020; STEP();
+    CHECK(rep[2] == 0x0A, "saved travel: 410 counts (51 %) presses");
+    keys_init(&k); SET_ALL(1600); f[G_] = 1700; t = 3100; STEP();       /* held since boot */
+    CHECK(rep[2] == 0 && k.pct[G_] == 0, "a key held since boot reads 0 % even with saved travel");
+    settings_defaults(&settings);
+
+    /* replay of a real capture (fw/test/mag-2026-10-26.csv: magnetic Space, weighted down at
+     * the start, lifted at 11.9 s, back down at 16.5 s; magnetic Fn pressed 3 times) */
+    {
+      FILE *csv = fopen("test/mag-2026-10-26.csv", "r");
+      unsigned sp_down = 0, sp_up = 0, fn_down = 0, rows = 0, sp_first_ms = 0, ms, a, b;
+      char line[64];
+      const unsigned SPC_ = 6 * SCAN_CH + 6;
+      keys_init(&k); SET_ALL(1600);
+      if (csv && fgets(line, sizeof line, csv)) {
+        while (fscanf(csv, "%u,%u,%u", &ms, &a, &b) == 3) {
+          uint8_t sp = k.pressed[SPC_], fn = k.pressed[FN_];
+          f[SPC_] = (uint16_t)a; f[FN_] = (uint16_t)b; t = 5000 + ms; STEP(); rows++;
+          if (!sp && k.pressed[SPC_]) { sp_down++; if (!sp_first_ms) sp_first_ms = ms; }
+          if (sp && !k.pressed[SPC_]) sp_up++;
+          fn_down += !fn && k.pressed[FN_];
+        }
+        fclose(csv);
+      }
+      CHECK(rows > 9000, "replay: capture read");
+      CHECK(sp_down == 1 && sp_up == 0 && sp_first_ms > 16000 && sp_first_ms < 17000,
+            "replay: Space held at boot never types, presses once when it goes back down");
+      CHECK(fn_down == 3, "replay: Fn pressed 3 times, as done");
+    }
     SET_ALL(1600); keys_init(&k);
 #undef SET_ALL
 #undef STEP
@@ -295,6 +380,54 @@ int main(void)
     req(r, (const uint8_t[]){OP_SET_RADIO, 3, 0}, 3);
     proto_dispatch(&st, r);
     CHECK(st.set_mode == PROTO_NO_MODE, "SET_RADIO ignores modes stock doesn't have (3, 4)");
+
+    /* protocol v6: per-key values, dead zones, saved travel */
+    settings_defaults(&settings);
+    req(r, (const uint8_t[]){OP_SET_KEYCFG, 1, 0, MAP_PER_PAGE}, 4);
+    r[8 + G_] = 70; r[8 + 0] = 12;                                       /* G, Esc */
+    proto_dispatch(&st, r);
+    CHECK(settings.rt_down[G_] == 50 && settings.rt_down[0] == 12 && r[8 + G_] == 50,
+          "SET_KEYCFG rapid trigger: 70 % clamped to 50, reply shows it");
+    req(r, (const uint8_t[]){OP_SET_KEYCFG, 0, 0, MAP_PER_PAGE}, 4);
+    r[8 + G_] = 2;
+    proto_dispatch(&st, r);
+    CHECK(settings.act[G_] == 5, "SET_KEYCFG actuation: 2 % raised to 5 (0 means global)");
+    req(r, (const uint8_t[]){OP_GET_KEYCFG, 1, 1}, 3);
+    proto_dispatch(&st, r);
+    CHECK(r[0] == OP_GET_KEYCFG && r[3] == SCAN_SITES - MAP_PER_PAGE, "GET_KEYCFG last page is the remainder");
+    req(r, (const uint8_t[]){OP_GET_KEYCFG, 3, 0}, 3);
+    proto_dispatch(&st, r);
+    CHECK(r[3] == 0, "GET_KEYCFG: a field that doesn't exist returns nothing");
+
+    req(r, (const uint8_t[]){OP_SET_CFG}, 1);
+    const uint8_t cfg6[] = { 1, 2, 2, 255, 255, 255, 8, 50, 35, 40, 6, 1 };
+    memcpy(r + 8, cfg6, sizeof cfg6);
+    proto_dispatch(&st, r);
+    CHECK(settings.top_dz == 30 && settings.bottom_dz == 6 && settings.rt_continuous == 1 && r[17] == 30,
+          "SET_CFG v6: dead zones (top clamped to 30 %) and continuous rapid trigger");
+
+    static keys_t kk;
+    static uint16_t fr[SCAN_SITES];
+    keys_init(&kk);
+    for (unsigned i = 0; i < SCAN_SITES; i++) fr[i] = 1800;
+    keys_update(&kk, fr, 0);
+    fr[G_] = 1200; keys_update(&kk, fr, 1);
+    st.keys = &kk;
+    req(r, (const uint8_t[]){OP_TRAVEL, 1}, 2);
+    proto_dispatch(&st, r);
+    CHECK(r[1] == 1 && settings.span[G_] == 600, "TRAVEL 1: stores the one key bottomed out (600 counts)");
+    req(r, (const uint8_t[]){OP_GET_TRAVEL, G_ / TRAVEL_PER_PAGE}, 2);
+    proto_dispatch(&st, r);
+    unsigned o = 8 + 4 * (G_ % TRAVEL_PER_PAGE);
+    CHECK((r[o] | r[o + 1] << 8) == 1800 && (r[o + 2] | r[o + 3] << 8) == 1200 && (r[3] & 1),
+          "GET_TRAVEL: G rest 1800, bottom 1200, page has saved travel");
+    req(r, (const uint8_t[]){OP_TRAVEL, 2}, 2);
+    proto_dispatch(&st, r);
+    CHECK(settings.span[G_] == 0, "TRAVEL 2: saved travel cleared");
+    req(r, (const uint8_t[]){OP_TRAVEL, 3}, 2);
+    proto_dispatch(&st, r);
+    CHECK(kk.rest[G_] == 0 && kk.bottom[G_] == 0xFFFF, "TRAVEL 3: learning starts over");
+    settings_defaults(&settings);
   }
 
   /* battery curve (stock v306): 1200 -> 1 %, 1320 -> 20 %, 1595 -> 100 % */

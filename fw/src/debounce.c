@@ -14,7 +14,7 @@ void debounce_init(debounce_t *d)
 }
 
 void debounce_process(debounce_t *d, const uint8_t *raw_pressed, uint32_t now_ms,
-                      uint8_t debounce_ms, uint8_t *debounced_pressed)
+                      const uint8_t *hold_ms, uint8_t *debounced_pressed)
 {
   for (unsigned i = 0; i < SCAN_SITES; i++) {
     uint8_t raw = raw_pressed ? raw_pressed[i] : 0;
@@ -27,7 +27,7 @@ void debounce_process(debounce_t *d, const uint8_t *raw_pressed, uint32_t now_ms
     }
     /* unsigned subtraction stays correct across the 32-bit millisecond wrap */
     if (d->state[i] == DB_RELEASING &&
-        (uint32_t)(now_ms - d->release_since_ms[i]) >= debounce_ms)
+        (uint32_t)(now_ms - d->release_since_ms[i]) >= (hold_ms ? hold_ms[i] : 0u))
       d->state[i] = DB_RELEASED;
 
     if (debounced_pressed) debounced_pressed[i] = (d->state[i] != DB_RELEASED);

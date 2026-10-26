@@ -241,6 +241,7 @@ int main(void)
   radio_init(conn_mode);                           /* SPI3 to the PAN1080, tells it the mode */
   hid_proto.raw = raw;
   hid_proto.pressed = keys.pressed;
+  hid_proto.keys = &keys;
   hid_proto.save = settings_save;
   hid_proto.set_mode = PROTO_NO_MODE;
   usb_start();
@@ -250,6 +251,7 @@ int main(void)
     wdt_counter_reload();
 
     if (hid_proto.enter_bootloader) enter_bootloader();
+    if (hid_proto.restart) { delay_ms(20); NVIC_SystemReset(); }   /* let the SET_REPORT finish */
     if (now >= HEALTHY_MS) fs_boots = 0;
     if (!proven) {
       if (hid_proto.host_seen) { mark_proven(fingerprint); proven = 1; }

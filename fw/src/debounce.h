@@ -13,9 +13,7 @@
  * them in replay, with no added press latency and no real tap lost (fastest real re-press
  * seen: ~15 ms after release).
  *
- * ponytail: one global debounce_ms, so magnetic/rapid-trigger keys also get releases
- * debounce_ms late; make it per-key once each key's switch type (mechanical vs magnetic)
- * is known.
+ * The hold-off is per key: keys.c gives rapid-trigger keys 0 (magnetic, no bounce).
  */
 #ifndef DEBOUNCE_H
 #define DEBOUNCE_H
@@ -34,10 +32,10 @@ void debounce_init(debounce_t *d);
 /* Process one frame of raw key-press states.
  * raw_pressed: SCAN_SITES entries (0 or 1), threshold states from keys.c.
  * now_ms: current monotonic timestamp in milliseconds (wraparound-safe).
- * debounce_ms: release hold-off in milliseconds (st->cfg[0x09]).
+ * hold_ms: release hold-off in milliseconds, per site (NULL = none).
  * debounced_pressed: destination, SCAN_SITES entries (0 or 1).
  */
 void debounce_process(debounce_t *d, const uint8_t *raw_pressed, uint32_t now_ms,
-                      uint8_t debounce_ms, uint8_t *debounced_pressed);
+                      const uint8_t *hold_ms, uint8_t *debounced_pressed);
 
 #endif /* DEBOUNCE_H */
