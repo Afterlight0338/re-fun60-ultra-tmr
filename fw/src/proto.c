@@ -75,16 +75,15 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     settings.led.on = q[8]; settings.led.effect = q[9]; settings.led.level = q[10];
     settings.led.r = q[11]; settings.led.g = q[12]; settings.led.b = q[13];
     settings.debounce_ms = q[14];
-    settings.press_below = (uint16_t)(q[15] | q[16] << 8);
-    settings.release_above = (uint16_t)(q[17] | q[18] << 8);
+    settings.press_pct = q[15];
+    settings.release_pct = q[16];
     settings_sanitize(&settings);
     /* fall through - reply with what was actually stored */
   case OP_GET_CFG:
     r[8] = settings.led.on; r[9] = settings.led.effect; r[10] = settings.led.level;
     r[11] = settings.led.r; r[12] = settings.led.g; r[13] = settings.led.b;
     r[14] = settings.debounce_ms;
-    r[15] = (uint8_t)settings.press_below;   r[16] = (uint8_t)(settings.press_below >> 8);
-    r[17] = (uint8_t)settings.release_above; r[18] = (uint8_t)(settings.release_above >> 8);
+    r[15] = settings.press_pct; r[16] = settings.release_pct;
     break;
 
   case OP_SAVE:

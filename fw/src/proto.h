@@ -13,7 +13,8 @@
  *   0xF2 GET_MAP  [layer][page]        -> [1] layer, [2] page, [3] n, [8..] n keycodes
  *   0xF3 SET_MAP  [layer][page][n], [8..] n keycodes (pages of 56 sites)
  *   0xF4 GET_CFG            -> [8..] on, effect, level, r, g, b, hold-off ms,
- *                              press_below LE16, release_above LE16
+ *                              press %, release % of travel (v5; v4 and older sent
+ *                              press_below LE16, release_above LE16 in ADC counts)
  *   0xF5 SET_CFG  [8..] same layout; values are range-checked
  *   0xF6 SAVE               -> [1] 1 if written to flash
  *   0xF7 DEFAULTS           -> settings back to defaults (in RAM; SAVE keeps them)
@@ -32,7 +33,7 @@
 
 #include <stdint.h>
 
-#define PROTO_VERSION      4u
+#define PROTO_VERSION      5u
 #define PROTO_REPORT_LEN   64u
 #define OP_GET_INFOR       0x8Fu
 #define OP_ISP_PREPARE     0xC5u

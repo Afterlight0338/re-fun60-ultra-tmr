@@ -1,11 +1,20 @@
 /*
  * keys.h - raw scan -> pressed keys -> boot keyboard report.
  *
- * Mechanical switches on this board pull their sense line from ~1400-2100 counts at rest down
- * to ~50-150 when closed (rawscan capture 2026-09-28; idle noise +-3). So a fixed threshold with
- * hysteresis is enough: pressed below KEY_PRESS_BELOW, released above KEY_RELEASE_ABOVE.
- * ponytail: fixed thresholds only suit mechanical switches; magnetic (TMR) switches need
- * per-key calibration and travel, add it when one goes in.
+ * Every site calibrates itself, the way stock v306 does (calibration @0x0800d580, per-key
+ * travel @0x0800de68): rest = the highest reading seen, bottom = the lowest, but never less
+ * than KEY_MIN_TRAVEL below rest (stock's default bottom is rest - 400, and it only takes a
+ * measured bottom that is more than 400 below rest). Travel is (rest - reading) as a percent of
+ * (rest - bottom); pressed at press_pct, released below release_pct. Readings fall on press for
+ * both switch kinds (stock's travel math assumes it), so mechanical and magnetic (TMR) switches
+ * can be mixed:
+ * - mechanical: ~1400-2100 at rest, ~50-150 closed (rawscan 2026-09-28), so 0 or 100 percent
+ * - magnetic: travel is taken as linear in counts (stock maps it through a per-switch curve
+ *   table to 0.01 mm; we don't)
+ * A site only counts once its rest is inside stock's KEY_REST_MIN..KEY_REST_MAX window, so a
+ * key held since boot, an empty socket (reads 0-2) or a dead sensor never types.
+ * ponytail: rest only ever rises, so a magnetic sensor drifting down (temperature) reads as a
+ * little travel; add stock-style idle re-averaging if a key ever triggers on its own.
  */
 #ifndef KEYS_H
 #define KEYS_H
@@ -14,8 +23,11 @@
 #include "board.h"
 #include "debounce.h"
 
-#define KEY_PRESS_BELOW    700u    /* defaults; the live values are in settings.h */
-#define KEY_RELEASE_ABOVE  1000u
+#define KEY_PRESS_PCT      50u     /* defaults; the live values are in settings.h */
+#define KEY_RELEASE_PCT    35u
+#define KEY_MIN_TRAVEL     400u    /* counts; stock's default and minimum calibrated travel */
+#define KEY_REST_MIN       1000u   /* stock ignores a key whose rest is outside this */
+#define KEY_REST_MAX       3300u
 #define KEY_DEBOUNCE_MS    8u      /* release hold-off, see debounce.h */
 
 /* keymap codes: HID keyboard usages, plus */
@@ -43,7 +55,8 @@
 
 typedef struct {
   uint8_t  raw_pressed[SCAN_SITES];  /* threshold state (with hysteresis) */
-  uint8_t  armed[SCAN_SITES];        /* seen released at least once since boot */
+  uint16_t rest[SCAN_SITES];         /* highest reading seen (key up) */
+  uint16_t bottom[SCAN_SITES];       /* lowest reading seen (key down) */
   uint8_t  pressed[SCAN_SITES];      /* after debounce */
   uint8_t  actions;                  /* LED_ACT_* pressed and not yet taken */
   uint8_t  winlock;                  /* KC_WINLOCK toggles it; GUI modifiers dropped */

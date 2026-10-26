@@ -13,8 +13,8 @@ void settings_defaults(settings_t *s)
     for (unsigned i = 0; i < SCAN_SITES; i++) s->keymap[l][i] = keymap_default[l][i];
   s->led = (led_state_t){ .on = 1, .effect = LED_RAINBOW, .level = 2, .r = 255, .g = 255, .b = 255 };
   s->debounce_ms = KEY_DEBOUNCE_MS;
-  s->press_below = KEY_PRESS_BELOW;
-  s->release_above = KEY_RELEASE_ABOVE;
+  s->press_pct = KEY_PRESS_PCT;
+  s->release_pct = KEY_RELEASE_PCT;
   s->conn_mode = RADIO_BT1;               /* last wireless mode; stock starts on Bluetooth 1 */
 }
 
@@ -24,10 +24,9 @@ void settings_sanitize(settings_t *s)
   if (s->led.effect >= LED_EFFECTS) s->led.effect = LED_STATIC;
   if (s->led.level >= LED_LEVELS) s->led.level = LED_LEVELS - 1;
   if (s->debounce_ms > 50) s->debounce_ms = 50;
-  if (s->press_below < 100) s->press_below = 100;       /* sensors rest at ~1400-2100 counts */
-  if (s->press_below > 3000) s->press_below = 3000;
-  if (s->release_above < s->press_below + 50) s->release_above = s->press_below + 50;
-  if (s->release_above > 4000) s->release_above = 4000;
+  if (s->press_pct < 10) s->press_pct = 10;               /* lower and noise alone could press */
+  if (s->press_pct > 95) s->press_pct = 95;
+  if (s->release_pct + 5 > s->press_pct) s->release_pct = s->press_pct - 5;
   if (s->conn_mode > RADIO_BT3 && s->conn_mode != RADIO_24G) s->conn_mode = RADIO_BT1;
 }
 

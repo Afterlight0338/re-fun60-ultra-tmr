@@ -14,13 +14,13 @@
 
 #define SETTINGS_ADDR     0x08027000u
 #define SETTINGS_MAGIC    0x53363046u    /* "F06S" */
-#define SETTINGS_VERSION  3u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08) */
+#define SETTINGS_VERSION  4u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12) */
 
 typedef struct {
   uint8_t  keymap[2][SCAN_SITES];        /* [0] base, [1] Fn (KC_NO = base key) */
   led_state_t led;
   uint8_t  debounce_ms;                  /* release hold-off, debounce.h */
-  uint16_t press_below, release_above;   /* ADC thresholds, keys.h */
+  uint8_t  press_pct, release_pct;       /* travel thresholds in percent, keys.h */
   uint8_t  conn_mode;                    /* last wireless mode (RADIO_BT1..3, RADIO_24G), Fn keys */
 } settings_t;
 

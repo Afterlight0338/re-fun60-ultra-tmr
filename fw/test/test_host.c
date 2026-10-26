@@ -173,6 +173,23 @@ int main(void)
     f[2 * SCAN_CH + 4] = 1600; f[FN_] = 1600; t = 470; STEP(); t = 480; STEP();
     f[2 * SCAN_CH + 4] = 80; t = 490; STEP();                            /* Win alone */
     CHECK(k.winlock && rep[0] == 0, "Fn + Win locks the Win key");
+
+    /* magnetic: rest 2400, never below ~1500; uncalibrated travel is stock's 400 counts */
+    keys_init(&k); k.winlock = 0;
+    SET_ALL(2400); t = 1000; STEP();
+    f[G_] = 2250; t = 1010; STEP();
+    CHECK(rep[2] == 0, "magnetic: 150 of 400 counts (37%) is not a press yet");
+    f[G_] = 2190; t = 1020; STEP();
+    CHECK(rep[2] == 0x0A, "magnetic: 210 counts (52%) presses before any calibration");
+    f[G_] = 1600; t = 1030; STEP(); f[G_] = 2000; t = 1040; STEP();
+    CHECK(rep[2] == 0x0A, "bottomed at 1600 (800 travel): 50% still held");
+    f[G_] = 2150; t = 1050; STEP(); t = 1060; STEP();
+    CHECK(rep[2] == 0, "released under 35% of the learned 800-count travel");
+    f[G_] = 2190; t = 1070; STEP();
+    CHECK(rep[2] == 0, "after calibration 210 counts (26%) is no longer a press");
+    f[G_] = 1990; t = 1080; STEP();
+    CHECK(rep[2] == 0x0A, "410 counts (51%) of the learned travel presses");
+    SET_ALL(1600); keys_init(&k);
 #undef SET_ALL
 #undef STEP
   }
@@ -235,13 +252,13 @@ int main(void)
     CHECK(r[3] == 0, "SET_MAP to a layer that doesn't exist changes nothing");
 
     req(r, (const uint8_t[]){OP_SET_CFG}, 1);
-    const uint8_t cfg[] = { 1, 9, 7, 10, 20, 30, 99, 0x20, 0x03, 0x2A, 0x03 };   /* press 800, release 810 */
+    const uint8_t cfg[] = { 1, 9, 7, 10, 20, 30, 99, 60, 58 };   /* press 60%, release 58% */
     memcpy(r + 8, cfg, sizeof cfg);
     proto_dispatch(&st, r);
     CHECK(settings.led.effect == LED_STATIC && settings.led.level == LED_LEVELS - 1 && settings.debounce_ms == 50,
           "SET_CFG clamps effect, brightness and hold-off from the host");
-    CHECK(settings.press_below == 800 && settings.release_above == 850 && (r[17] | r[18] << 8) == 850,
-          "release threshold kept 50 above press, reply shows what was stored");
+    CHECK(settings.press_pct == 60 && settings.release_pct == 55 && r[16] == 55,
+          "release kept 5 points under press, reply shows what was stored");
     CHECK(settings.led.r == 10 && settings.led.g == 20 && settings.led.b == 30, "static colour stored");
 
     pressed[G_] = pressed[FN_] = 1;

@@ -125,12 +125,16 @@ static void failsafe_boot(void)
  * that reads all-low (rails not up, broken scan) can't send every boot to the bootloader. */
 #define BOOTKEY_SITE   0u
 #define BOOTKEY_REF    8u
+/* fixed counts (v0.11's mechanical thresholds): no calibration exists yet at boot.
+ * ponytail: a magnetic Esc may never read this low; then use the watchdog failsafe. */
+#define BOOTKEY_PRESS_BELOW  700u
+#define BOOTKEY_REST_ABOVE   1000u
 
 static void bootkey_check(void)
 {
   for (int i = 0; i < 5; i++) {
     scan_frame(raw);
-    if (raw[BOOTKEY_SITE] >= settings.press_below || raw[BOOTKEY_REF] <= settings.release_above)
+    if (raw[BOOTKEY_SITE] >= BOOTKEY_PRESS_BELOW || raw[BOOTKEY_REF] <= BOOTKEY_REST_ABOVE)
       return;
   }
   enter_bootloader();

@@ -64,7 +64,11 @@ const uint8_t keymap_default[2][SCAN_SITES] = { BASE_LAYER, FN_LAYER };
 
 void keys_init(keys_t *k)
 {
-  for (unsigned i = 0; i < SCAN_SITES; i++) k->raw_pressed[i] = k->armed[i] = k->pressed[i] = 0;
+  for (unsigned i = 0; i < SCAN_SITES; i++) {
+    k->raw_pressed[i] = k->pressed[i] = 0;
+    k->rest[i] = 0;
+    k->bottom[i] = 0xFFFF;
+  }
   k->winlock = 0;
   k->actions = 0;
   debounce_init(&k->db);
@@ -89,10 +93,15 @@ int keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms)
   int changed = 0;
 
   for (unsigned i = 0; i < SCAN_SITES; i++) {
-    uint8_t p = k->raw_pressed[i] ? raw[i] < settings.release_above : raw[i] < settings.press_below;
-    k->raw_pressed[i] = p;
-    if (!p) k->armed[i] = 1;             /* a site low since boot (no switch, stuck) never counts */
-    if (!k->armed[i] || settings.keymap[0][i] == KC_NO) k->raw_pressed[i] = 0;
+    uint16_t v = raw[i];
+    if (v > k->rest[i]) k->rest[i] = v;
+    if (v < k->bottom[i]) k->bottom[i] = v;
+    unsigned rest = k->rest[i], bottom = k->bottom[i];
+    if (bottom + KEY_MIN_TRAVEL > rest) bottom = rest > KEY_MIN_TRAVEL ? rest - KEY_MIN_TRAVEL : 0;
+    unsigned pct = rest > bottom ? (rest - v) * 100u / (rest - bottom) : 0;   /* rest >= v */
+    k->raw_pressed[i] = k->raw_pressed[i] ? pct > settings.release_pct : pct >= settings.press_pct;
+    if (rest < KEY_REST_MIN || rest > KEY_REST_MAX || settings.keymap[0][i] == KC_NO)
+      k->raw_pressed[i] = 0;
     before[i] = k->pressed[i];
   }
   debounce_process(&k->db, k->raw_pressed, now_ms, settings.debounce_ms, k->pressed);
