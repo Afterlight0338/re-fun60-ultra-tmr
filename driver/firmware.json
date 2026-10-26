@@ -1,0 +1,4 @@
+[
+{"version": "0.12", "ref": "v0.12", "status": "experimental", "date": "2026-10-26", "notes": "Magnetic switch support (per-key travel, learned like stock). Never run on a keyboard yet: it may mistype, miss keys or not type at all. Holding Esc while plugging in may not reach the bootloader with a magnetic Esc."},
+{"version": "0.11", "ref": "v0.11", "status": "stable", "date": "2026-09-30", "notes": "Mechanical switches only. Tested and in daily use: USB, 2.4G, Fn layer, lighting, no double typing."}
+]
