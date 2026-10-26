@@ -199,6 +199,19 @@ static void mode_keys(uint32_t now)
   }
 }
 
+/* ---- profiles: the Profile 1-4 keys or the host (settings.h) ---- */
+static void profile_keys(void)
+{
+  static uint8_t held;
+  uint8_t k = keys_held(&keys, KC_PROF1, KC_PROF4), n = hid_proto.set_profile;
+  if (k && k != held) n = (uint8_t)(k - KC_PROF1);
+  held = k;
+  hid_proto.set_profile = PROTO_NO_MODE;
+  if (n >= PROFILES || n == settings.profile) return;
+  settings_profile(n);                             /* ~80 ms of flash writes */
+  keys_reset_adv(&keys);
+}
+
 /* ---- USB ---- */
 void OTG_IRQ_HANDLER(void) { usbd_irq_handler(&otg_core_struct); }
 
@@ -245,6 +258,7 @@ int main(void)
   hid_proto.keys = &keys;
   hid_proto.save = settings_save;
   hid_proto.set_mode = PROTO_NO_MODE;
+  hid_proto.set_profile = PROTO_NO_MODE;
   usb_start();
 
   while (1) {
@@ -263,6 +277,7 @@ int main(void)
     report_changed = keys_update(&keys, raw, now);
     report_due |= report_changed;
     mode_keys(now);
+    profile_keys();
     mode_follow_usb();
     if (conn_mode != radio.mode) radio_set_mode(conn_mode);
     int wireless = radio.mode != RADIO_USB;

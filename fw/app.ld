@@ -35,7 +35,7 @@ _Min_Stack_Size = 0x400; /* required amount of stack */
 /* Specify the memory areas */
 MEMORY
 {
-FLASH (rx)      : ORIGIN = 0x08005200, LENGTH = 0x21E00   /* up to 0x08027000: then settings, failsafe proof */
+FLASH (rx)      : ORIGIN = 0x08005200, LENGTH = 0x1FE00   /* up to 0x08025000: then 4 profiles, settings, failsafe proof */
 RAM (xrw)       : ORIGIN = 0x20000000, LENGTH = 96K - 16
 NOINIT (rw)     : ORIGIN = 0x20017FF0, LENGTH = 16
 }

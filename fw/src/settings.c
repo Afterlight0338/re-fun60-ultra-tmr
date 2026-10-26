@@ -40,6 +40,7 @@ void settings_sanitize(settings_t *s)
   if (s->press_pct > 95) s->press_pct = 95;
   if (s->release_pct + 5 > s->press_pct) s->release_pct = s->press_pct - 5;
   if (s->conn_mode > RADIO_BT3 && s->conn_mode != RADIO_24G) s->conn_mode = RADIO_BT1;
+  if (s->profile >= PROFILES) s->profile = 0;
   if (s->top_dz > 30) s->top_dz = 30;
   if (s->bottom_dz > 30) s->bottom_dz = 30;
   s->rt_continuous = s->rt_continuous ? 1 : 0;
@@ -83,11 +84,16 @@ static uint32_t checksum(const void *p, unsigned n)   /* FNV-1a */
   return h;
 }
 
+static int valid(const stored_t *f)
+{
+  return f->magic == SETTINGS_MAGIC && f->version == SETTINGS_VERSION && f->size == sizeof(settings_t) &&
+         f->sum == checksum(&f->s, sizeof f->s);
+}
+
 void settings_load(void)
 {
   const stored_t *f = (const stored_t *)SETTINGS_ADDR;
-  if (f->magic == SETTINGS_MAGIC && f->version == SETTINGS_VERSION && f->size == sizeof(settings_t) &&
-      f->sum == checksum(&f->s, sizeof f->s)) {
+  if (valid(f)) {
     memcpy(&settings, &f->s, sizeof settings);
     settings_sanitize(&settings);
   } else {
@@ -95,7 +101,7 @@ void settings_load(void)
   }
 }
 
-int settings_save(void)
+static int write_page(uint32_t addr)
 {
   static stored_t img __attribute__((aligned(4)));
   const uint32_t *w = (const uint32_t *)&img;
@@ -108,10 +114,31 @@ int settings_save(void)
   img.sum = checksum(&img.s, sizeof img.s);
 
   flash_unlock();
-  ok = flash_sector_erase(SETTINGS_ADDR) == FLASH_OPERATE_DONE;
+  ok = flash_sector_erase(addr) == FLASH_OPERATE_DONE;
   for (unsigned i = 0; ok && i < (sizeof img + 3u) / 4u; i++)
-    ok = flash_word_program(SETTINGS_ADDR + 4u * i, w[i]) == FLASH_OPERATE_DONE;
+    ok = flash_word_program(addr + 4u * i, w[i]) == FLASH_OPERATE_DONE;
   flash_lock();
-  return ok && memcmp((const void *)SETTINGS_ADDR, &img, sizeof img) == 0 ? 0 : -1;
+  return ok && memcmp((const void *)addr, &img, sizeof img) == 0 ? 0 : -1;
+}
+
+int settings_save(void)
+{
+  return write_page(PROFILE_ADDR(settings.profile)) | write_page(SETTINGS_ADDR);
+}
+
+int settings_profile(unsigned n)
+{
+  if (n >= PROFILES) return -1;
+  if (n == settings.profile) return 0;
+  if (write_page(PROFILE_ADDR(settings.profile))) return -1;   /* keep the one we leave */
+  const stored_t *f = (const stored_t *)PROFILE_ADDR(n);
+  uint8_t conn = settings.conn_mode;
+  static uint16_t span[SCAN_SITES];
+  memcpy(span, settings.span, sizeof span);
+  if (valid(f)) { memcpy(&settings, &f->s, sizeof settings); settings_sanitize(&settings); }
+  settings.conn_mode = conn;                                   /* the keyboard's, not the profile's */
+  memcpy(settings.span, span, sizeof span);
+  settings.profile = (uint8_t)n;
+  return settings_save();
 }
 #endif

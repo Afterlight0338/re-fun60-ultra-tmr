@@ -91,6 +91,12 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     r[17] = settings.top_dz; r[18] = settings.bottom_dz; r[19] = settings.rt_continuous;
     r[20] = settings.nkro;
     r[21] = settings.led.speed;
+    r[22] = settings.profile;
+    break;
+
+  case OP_PROFILE:
+    r[1] = settings.profile;
+    if (q[1] < PROFILES) st->set_profile = q[1];
     break;
 
   case OP_GET_LEDMAP:

@@ -619,6 +619,16 @@ int main(void)
     req(r, (const uint8_t[]){OP_GET_MACRO, 8, 0}, 3);
     proto_dispatch(&st, r);
     CHECK(r[3] == 0, "GET_MACRO: macro 8 doesn't exist");
+    st.set_profile = PROTO_NO_MODE;
+    req(r, (const uint8_t[]){OP_PROFILE, 4}, 2);
+    proto_dispatch(&st, r);
+    CHECK(st.set_profile == PROTO_NO_MODE, "PROFILE 4: no such profile, nothing to do");
+    req(r, (const uint8_t[]){OP_PROFILE, 2}, 2);
+    proto_dispatch(&st, r);
+    CHECK(st.set_profile == 2 && r[1] == 0, "PROFILE 2: handed to the main loop, reply = profile before");
+    req(r, (const uint8_t[]){OP_GET_CFG}, 1);
+    proto_dispatch(&st, r);
+    CHECK(r[22] == 0, "GET_CFG: active profile in byte 22");
     settings_defaults(&settings);
   }
 

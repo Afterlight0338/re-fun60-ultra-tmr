@@ -59,6 +59,8 @@
 #define KC_USB      0xBCu
 #define KC_BATT     0xBDu          /* hold: battery level on Esc (indicators.h) */
 #define KC_WINLOCK  0xBEu          /* toggle: Win keys do nothing */
+#define KC_PROF1    0xC0u          /* switch to profile 1..4 (settings.h) */
+#define KC_PROF4    0xC3u
 
 /* advanced keys (v0.14), a table of ADV_MAX in settings.h. A key used by a mod-tap, toggle or
  * DKS entry belongs to it (its keymap entries are ignored); SOCD only filters two normal keys.
@@ -137,6 +139,8 @@ uint16_t keys_bottom(const keys_t *k, unsigned i);
 unsigned keys_store_travel(const keys_t *k);
 /* Forget what was learned since power-on (rest and bottom start again from the next frame). */
 void keys_relearn(keys_t *k);
+/* Settings were replaced (profile switch): drop what advanced keys and macros hold. */
+void keys_reset_adv(keys_t *k);
 /* A key held right now whose code is in lo..hi (e.g. KC_BT1..KC_USB), or 0. */
 uint8_t keys_held(const keys_t *k, uint8_t lo, uint8_t hi);
 

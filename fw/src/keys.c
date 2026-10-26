@@ -93,6 +93,14 @@ static uint8_t code_at(unsigned i, int fn)
   return fn && settings.keymap[1][i] != KC_NO ? settings.keymap[1][i] : settings.keymap[0][i];
 }
 
+void keys_reset_adv(keys_t *k)
+{
+  for (unsigned i = 0; i < 32; i++) k->held[i] = 0;
+  for (unsigned i = 0; i < 8; i++) k->tap_code[i] = 0;
+  for (unsigned i = 0; i < ADV_MAX; i++) k->adv[i].on = k->adv[i].latched = k->adv[i].bottom = 0;
+  for (unsigned p = 0; p < PLAYERS; p++) k->play[p].on = 0;
+}
+
 void keys_relearn(keys_t *k)
 {
   for (unsigned i = 0; i < SCAN_SITES; i++) { k->rest[i] = 0; k->bottom[i] = 0xFFFF; }

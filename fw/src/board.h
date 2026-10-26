@@ -18,7 +18,7 @@
  * check still guards restores; our own version number. */
 #define FW_DEV_ID     2307u
 #define FW_VER_MAJOR  0u
-#define FW_VER_MINOR  16u
+#define FW_VER_MINOR  17u
 
 /* busy-wait delays on the DWT cycle counter (main.c) */
 void delay_us(uint32_t us);
