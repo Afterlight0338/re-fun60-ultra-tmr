@@ -279,6 +279,107 @@ int main(void)
 #undef STEP
   }
 
+  printf("[3b] NKRO and advanced keys (v0.14)\n");
+  {
+    static keys_t k;
+    static uint16_t f[SCAN_SITES];
+    uint8_t rep[8], nk[NKRO_LEN];
+    const unsigned A_ = 1 * SCAN_CH + 2, D_ = 3 * SCAN_CH + 2, Q_ = 1 * SCAN_CH + 1, CAPS_ = 0 * SCAN_CH + 2,
+                   W_ = 2 * SCAN_CH + 1, E_ = 3 * SCAN_CH + 1;
+    uint32_t t = 0;
+#define SET_ALL(v) for (unsigned i = 0; i < SCAN_SITES; i++) f[i] = (v)
+#define STEP() (keys_update(&k, f, t), keys_report(&k, rep), keys_report_nkro(&k, nk))
+#define NK(c) (nk[1 + ((c) >> 3)] >> ((c) & 7) & 1)
+    settings_defaults(&settings); keys_init(&k);
+    SET_ALL(1600); t = 10; STEP();
+
+    CHECK(usb_consumer_report_desc[24] == 0xC0 && usb_consumer_report_desc[CONSUMER_REPORT_DESC_LEN - 1] == 0xC0 &&
+          usb_consumer_report_desc[7] == 1 && usb_consumer_report_desc[32] == 2,
+          "interface 2: consumer (ID 1) and NKRO keyboard (ID 2) collections, closed");
+    for (unsigned c = 1; c <= 10; c++) f[c * SCAN_CH + 1] = 80;          /* Q..P: 10 keys */
+    f[0 * SCAN_CH + 3] = 80;                                             /* + Left Shift */
+    t = 20; STEP();
+    unsigned n = 0;
+    for (unsigned c = 0; c < 0x78; c++) n += NK(c);
+    CHECK(n == 10 && NK(0x14) && NK(0x13) && nk[0] == 0x02, "NKRO: 10 letters and Shift all in the report");
+    CHECK(rep[2] == 0x01, "6KRO report of the same: ErrorRollOver");
+    SET_ALL(1600); t = 40; STEP(); t = 60; STEP();
+    CHECK(nk[0] == 0 && !NK(0x14), "NKRO: all released");
+
+    /* SOCD A/D, last input wins */
+    settings.adv[0] = (adv_t){ .type = ADV_SOCD, .a = A_, .b = D_, .p0 = 0 };
+    f[A_] = 80; t = 100; STEP();
+    f[D_] = 80; t = 110; STEP();
+    CHECK(NK(0x07) && !NK(0x04), "SOCD last: A then D, only D");
+    f[D_] = 1600; t = 120; STEP(); t = 130; STEP();
+    CHECK(NK(0x04) && !NK(0x07), "SOCD last: letting D go brings A back");
+    f[D_] = 80; t = 140; STEP();
+    CHECK(NK(0x07) && !NK(0x04), "SOCD last: D again wins again");
+    settings.adv[0].p0 = 3; t = 150; STEP();
+    CHECK(!NK(0x07) && !NK(0x04), "SOCD neutral: both down, neither");
+    settings.adv[0].p0 = 1; t = 160; STEP();
+    CHECK(NK(0x04) && !NK(0x07) && rep[2] == 0x04, "SOCD A wins (and the 6KRO report agrees)");
+    SET_ALL(1600); t = 170; STEP(); t = 190; STEP();
+    settings.adv[0] = (adv_t){0};
+
+    /* mod-tap on Caps: tap = Escape, hold = Left Ctrl */
+    settings.adv[1] = (adv_t){ .type = ADV_MODTAP, .a = CAPS_, .p0 = 20, .code = { 0x29, 0xE0 } };
+    f[CAPS_] = 80; t = 200; STEP();
+    CHECK(nk[0] == 0 && !NK(0x39) && !NK(0x29), "mod-tap: nothing while undecided, never Caps Lock");
+    f[CAPS_] = 1600; t = 250; STEP(); t = 258; STEP();                    /* after the 8 ms hold-off */
+    CHECK(NK(0x29), "mod-tap: released in 50 ms = Escape tapped");
+    t = 277; STEP();
+    CHECK(NK(0x29), "mod-tap: the tap stays down for 20 ms (one report on any link)");
+    t = 278; STEP();
+    CHECK(!NK(0x29), "mod-tap: then comes up");
+    f[CAPS_] = 80; t = 300; STEP(); t = 499; STEP();
+    CHECK(nk[0] == 0, "mod-tap: still undecided at 199 ms");
+    t = 500; STEP();
+    CHECK(nk[0] == 0x01 && !NK(0x29), "mod-tap: held 200 ms = Left Ctrl, no Escape");
+    f[CAPS_] = 1600; t = 600; STEP(); t = 620; STEP();
+    CHECK(nk[0] == 0 && !NK(0x29), "mod-tap: Ctrl released with the key, no Escape after a hold");
+    f[CAPS_] = 80; t = 700; STEP(); f[Q_] = 80; t = 710; STEP();
+    CHECK(nk[0] == 0x01 && NK(0x14), "mod-tap: another key down while undecided = Ctrl + Q at once");
+    SET_ALL(1600); t = 720; STEP(); t = 740; STEP();
+    CHECK(nk[0] == 0 && !NK(0x29), "mod-tap: all up, no stray Escape");
+
+    /* toggle on W */
+    settings.adv[2] = (adv_t){ .type = ADV_TOGGLE, .a = W_, .code = { 0x1A } };
+    f[W_] = 80; t = 800; STEP(); f[W_] = 1600; t = 850; STEP(); t = 900; STEP();
+    CHECK(NK(0x1A), "toggle: a tap latches W down");
+    f[W_] = 80; t = 1000; STEP();
+    CHECK(!NK(0x1A), "toggle: the next press lets it go");
+    f[W_] = 1600; t = 1050; STEP(); t = 1070; STEP();
+    f[W_] = 80; t = 1100; STEP(); f[W_] = 1600; t = 1500; STEP(); t = 1520; STEP();
+    CHECK(!NK(0x1A), "toggle: a long press acts like a normal key");
+
+    /* DKS on E (magnetic travel): F down at press, G tapped at bottom, F up off the bottom, H tapped at release */
+    settings.adv[3] = (adv_t){ .type = ADV_DKS, .a = E_, .p0 = 90,
+                               .code = { 0x09, 0x0A, 0x0B }, .act = { 0x01 | 0x2 << 4, 0x3 << 2, 0x3 << 6 } };
+    keys_init(&k); SET_ALL(2400); t = 2000; STEP();
+    f[E_] = 1600; t = 2010; STEP(); f[E_] = 2400; t = 2020; STEP(); t = 2040; STEP();   /* learn 800 */
+    f[E_] = 2000; t = 2100; STEP();
+    CHECK(NK(0x09) && !NK(0x08), "DKS: F down at the actuation point, E itself never sent");
+    f[E_] = 1650; t = 2110; STEP();
+    CHECK(NK(0x09) && NK(0x0A), "DKS: G tapped at the bottom (94 %)");
+    f[E_] = 1800; t = 2140; STEP();
+    CHECK(!NK(0x09) && !NK(0x0A), "DKS: off the bottom: F up, G's tap over");
+    f[E_] = 2400; t = 2150; STEP(); t = 2158; STEP();
+    CHECK(NK(0x0B), "DKS: H tapped at release");
+    t = 2200; STEP();
+    CHECK(!NK(0x0B) && nk[0] == 0, "DKS: nothing left down");
+
+    /* debug press from the host */
+    settings_defaults(&settings); keys_init(&k); SET_ALL(1600); t = 3000; STEP();
+    k.force[A_] = 1; t = 3010; STEP();
+    CHECK(NK(0x04) && rep[2] == 0x04, "debug press: A down without a reading");
+    k.force[A_] = 0; t = 3020; STEP(); t = 3040; STEP();
+    CHECK(!NK(0x04), "debug press: let go");
+#undef NK
+#undef SET_ALL
+#undef STEP
+  }
+
   printf("[4] LEDs: encoding and power cap\n");
   {
     static uint8_t out[LED_FRAME_BYTES];
@@ -427,6 +528,29 @@ int main(void)
     req(r, (const uint8_t[]){OP_TRAVEL, 3}, 2);
     proto_dispatch(&st, r);
     CHECK(kk.rest[G_] == 0 && kk.bottom[G_] == 0xFFFF, "TRAVEL 3: learning starts over");
+    settings_defaults(&settings);
+
+    /* protocol v7: advanced keys, NKRO flag, debug press */
+    req(r, (const uint8_t[]){OP_SET_ADV, 2, 2}, 3);
+    const uint8_t e2[24] = { ADV_SOCD, 9, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                             ADV_MODTAP, 120, 0, 20, 0x29, 0xE0, 0, 0, 0, 0, 0, 0 };   /* site 120: no such key */
+    memcpy(r + 8, e2, sizeof e2);
+    proto_dispatch(&st, r);
+    CHECK(settings.adv[2].type == ADV_SOCD && settings.adv[2].a == 9 && settings.adv[2].b == 25 &&
+          settings.adv[3].type == ADV_NONE && r[2] == 2 && r[20] == ADV_NONE,
+          "SET_ADV: SOCD stored, an entry on a site that doesn't exist dropped");
+    req(r, (const uint8_t[]){OP_GET_ADV, 14}, 2);
+    proto_dispatch(&st, r);
+    CHECK(r[0] == OP_GET_ADV && r[1] == 14 && r[2] == 2, "GET_ADV from 14: the last 2 entries");
+    req(r, (const uint8_t[]){OP_GET_CFG}, 1);
+    proto_dispatch(&st, r);
+    CHECK(r[20] == 1, "GET_CFG: NKRO on by default");
+    req(r, (const uint8_t[]){OP_DEBUG_PRESS, G_, 1}, 3);
+    proto_dispatch(&st, r);
+    CHECK(kk.force[G_] == 1, "DEBUG_PRESS holds a key");
+    req(r, (const uint8_t[]){OP_DEBUG_PRESS, G_, 0}, 3);
+    proto_dispatch(&st, r);
+    CHECK(kk.force[G_] == 0, "DEBUG_PRESS lets it go");
     settings_defaults(&settings);
   }
 

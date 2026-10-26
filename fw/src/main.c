@@ -219,7 +219,8 @@ int main(void)
   led_overlay_t overlay;
   uint16_t consumer = 0;
   uint32_t fingerprint;
-  uint8_t report[KBD_REPORT_LEN];
+  uint8_t report[KBD_REPORT_LEN], nkro[NKRO_LEN];
+  static uint8_t sent_kbd[KBD_REPORT_LEN], sent_nkro[NKRO_LEN];   /* what the host has now (USB) */
 
   nvic_vector_table_set(NVIC_VECTTAB_FLASH, 0x5200);   /* as stock main @0x08014b90 */
   CoreDebug->DEMCR |= CoreDebug_DEMCR_TRCENA_Msk;
@@ -269,7 +270,25 @@ int main(void)
     if (report_due) {
       keys_report(&keys, report);
       if (wireless) { radio_keyboard(report); report_due = 0; }
-      else if (hid_send_keyboard(&otg_core_struct.dev, report) == 0) report_due = 0;  /* else retry */
+      else {
+        /* USB: NKRO on interface 2 unless off or a BIOS asked for boot protocol; the interface
+         * not in use is sent empty once, so switching never leaves a key down */
+        int use_nkro = settings.nkro && hid_report_protocol(), kbd_new = 0, nkro_new = 0, ok = 1;
+        keys_report_nkro(&keys, nkro);
+        for (unsigned i = 0; i < KBD_REPORT_LEN; i++) { if (use_nkro) report[i] = 0; kbd_new |= report[i] != sent_kbd[i]; }
+        for (unsigned i = 0; i < NKRO_LEN; i++) { if (!use_nkro) nkro[i] = 0; nkro_new |= nkro[i] != sent_nkro[i]; }
+        if (kbd_new) {
+          if (hid_send_keyboard(&otg_core_struct.dev, report) == 0)
+            for (unsigned i = 0; i < KBD_REPORT_LEN; i++) sent_kbd[i] = report[i];
+          else ok = 0;
+        }
+        if (nkro_new) {
+          if (hid_send_nkro(&otg_core_struct.dev, nkro) == 0)
+            for (unsigned i = 0; i < NKRO_LEN; i++) sent_nkro[i] = nkro[i];
+          else ok = 0;
+        }
+        if (ok) report_due = 0;                                          /* else retry */
+      }
     }
 
     uint16_t c = keys_consumer(&keys);

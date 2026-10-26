@@ -18,6 +18,7 @@
  *                              press_below LE16, release_above LE16 in ADC counts),
  *                              [17] top dead zone %, [18] bottom dead zone %,
  *                              [19] rapid trigger continuous                         (v6)
+ *                              [20] NKRO on USB                                      (v7)
  *   0xF5 SET_CFG  [8..] same layout; values are range-checked
  *   0xF6 SAVE               -> [1] 1 if written to flash
  *   0xF7 DEFAULTS           -> settings back to defaults (in RAM; SAVE keeps them)
@@ -39,6 +40,11 @@
  *   0xFE TRAVEL [cmd]       -> 1: store each key's travel seen since power-on ([1] = keys
  *                              stored; SAVE writes it), 2: clear saved travel, 3: forget what
  *                              was learned since power-on                               (v6)
+ *   0xE1 GET_ADV  [first]   -> [1] first, [2] n (up to 4), [8..] n advanced keys x 12 bytes:
+ *                              type, a, b, p0, code[4], act[4] (keys.h)                  (v7)
+ *   0xE2 SET_ADV  [first][n], [8..] n entries; range-checked, reply = stored
+ *   0xEF DEBUG_PRESS [site][on] -> holds a key down as if pressed (on = 1) or lets it go;
+ *                              for testing the reports without touching the keyboard   (v7)
  */
 #ifndef PROTO_H
 #define PROTO_H
@@ -46,7 +52,7 @@
 #include <stdint.h>
 #include "keys.h"
 
-#define PROTO_VERSION      6u
+#define PROTO_VERSION      7u
 #define PROTO_REPORT_LEN   64u
 #define OP_GET_INFOR       0x8Fu
 #define OP_ISP_PREPARE     0xC5u
@@ -66,6 +72,10 @@
 #define OP_SET_KEYCFG      0xFCu
 #define OP_GET_TRAVEL      0xFDu
 #define OP_TRAVEL          0xFEu
+#define OP_GET_ADV         0xE1u
+#define OP_SET_ADV         0xE2u
+#define OP_DEBUG_PRESS     0xEFu
+#define ADV_PER_PAGE       4u
 #define KEYCFG_FIELDS      3u
 #define TRAVEL_PER_PAGE    14u
 #define PROTO_NO_MODE      0xFFu

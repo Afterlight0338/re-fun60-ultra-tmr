@@ -11,20 +11,22 @@
 proto_state_t hid_proto;
 
 static struct {
-  uint8_t protocol, idle, alt, set_itf;
+  uint8_t protocol, idle, alt, set_itf;           /* protocol: interface 0's, 1 = report */
   volatile uint8_t kbd_busy, cons_busy;
   uint8_t kbd[KBD_REPORT_LEN] ALIGN4;
   uint8_t cons[CONSUMER_REPORT_LEN] ALIGN4;
+  uint8_t nkro[NKRO_REPORT_LEN] ALIGN4;
   uint8_t led[4] ALIGN4;
   uint8_t feature[PROTO_REPORT_LEN] ALIGN4;
-} hid;
+} hid = { .protocol = 1, .cons = { REPORT_ID_CONSUMER }, .nkro = { REPORT_ID_NKRO } };                         /* HID 1.11 7.2.6: report protocol after reset */
 
 static usb_sts_type init_handler(void *udev)
 {
   usbd_ept_open(udev, EP_KBD_IN, EPT_INT_TYPE, KBD_REPORT_LEN);
   usbd_ept_open(udev, EP_VENDOR_IN, EPT_INT_TYPE, PROTO_REPORT_LEN);
-  usbd_ept_open(udev, EP_CONSUMER_IN, EPT_INT_TYPE, CONSUMER_REPORT_LEN);
+  usbd_ept_open(udev, EP_CONSUMER_IN, EPT_INT_TYPE, IF2_EP_SIZE);
   hid.kbd_busy = hid.cons_busy = 0;
+  hid.protocol = 1;
   return USB_OK;
 }
 
@@ -51,12 +53,14 @@ static usb_sts_type setup_handler(void *udev, usb_setup_type *setup)
       break;
     case HID_REQ_GET_REPORT:
       if (itf == IF_VENDOR)        usbd_ctrl_send(udev, hid.feature, MIN(PROTO_REPORT_LEN, setup->wLength));
+      else if (itf == IF_CONSUMER && (uint8_t)setup->wValue == REPORT_ID_NKRO)
+                                   usbd_ctrl_send(udev, hid.nkro, MIN(NKRO_REPORT_LEN, setup->wLength));
       else if (itf == IF_CONSUMER) usbd_ctrl_send(udev, hid.cons, MIN(CONSUMER_REPORT_LEN, setup->wLength));
       else                         usbd_ctrl_send(udev, hid.kbd, MIN(KBD_REPORT_LEN, setup->wLength));
       break;
     case HID_REQ_SET_IDLE:     hid.idle = (uint8_t)(setup->wValue >> 8);  break;
     case HID_REQ_GET_IDLE:     usbd_ctrl_send(udev, &hid.idle, 1);        break;
-    case HID_REQ_SET_PROTOCOL: hid.protocol = (uint8_t)setup->wValue;     break;
+    case HID_REQ_SET_PROTOCOL: if (itf == IF_KBD) hid.protocol = (uint8_t)setup->wValue; break;
     case HID_REQ_GET_PROTOCOL: usbd_ctrl_send(udev, &hid.protocol, 1);    break;
     default:                   usbd_ctrl_unsupport(udev);                 break;
     }
@@ -130,11 +134,24 @@ int hid_send_keyboard(usbd_core_type *udev, const uint8_t report[8])
 int hid_send_consumer(usbd_core_type *udev, uint16_t usage)
 {
   if (usbd_connect_state_get(udev) != USB_CONN_STATE_CONFIGURED || hid.cons_busy) return -1;
-  hid.cons[0] = (uint8_t)usage;
-  hid.cons[1] = (uint8_t)(usage >> 8);
+  hid.cons[0] = REPORT_ID_CONSUMER;
+  hid.cons[1] = (uint8_t)usage;
+  hid.cons[2] = (uint8_t)(usage >> 8);
   hid.cons_busy = 1;
   usbd_ept_send(udev, EP_CONSUMER_IN, hid.cons, CONSUMER_REPORT_LEN);
   return 0;
 }
+
+int hid_send_nkro(usbd_core_type *udev, const uint8_t *report)
+{
+  if (usbd_connect_state_get(udev) != USB_CONN_STATE_CONFIGURED || hid.cons_busy) return -1;
+  hid.nkro[0] = REPORT_ID_NKRO;
+  for (unsigned i = 1; i < NKRO_REPORT_LEN; i++) hid.nkro[i] = report[i - 1];
+  hid.cons_busy = 1;                                /* one endpoint for both of interface 2's reports */
+  usbd_ept_send(udev, EP_CONSUMER_IN, hid.nkro, NKRO_REPORT_LEN);
+  return 0;
+}
+
+int hid_report_protocol(void) { return hid.protocol != 0; }
 
 uint8_t hid_host_leds(void) { return hid.led[0]; }   /* keyboard LED output report: bit 1 Caps */

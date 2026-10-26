@@ -22,6 +22,8 @@ void settings_defaults(settings_t *s)
     s->act[i] = s->rt_down[i] = s->rt_up[i] = 0;
     s->span[i] = 0;
   }
+  for (unsigned j = 0; j < ADV_MAX; j++) s->adv[j] = (adv_t){0};
+  s->nkro = 1;
 }
 
 void settings_sanitize(settings_t *s)
@@ -44,6 +46,14 @@ void settings_sanitize(settings_t *s)
     if (s->rt_up[i] > 50) s->rt_up[i] = 50;
     if (s->span[i] && (s->span[i] < KEY_MIN_TRAVEL || s->span[i] > KEY_REST_MAX)) s->span[i] = 0;
   }
+  for (unsigned j = 0; j < ADV_MAX; j++) {
+    adv_t *a = &s->adv[j];
+    if (a->type > ADV_DKS || a->a >= SCAN_SITES || (a->type == ADV_SOCD && (a->b >= SCAN_SITES || a->b == a->a)))
+      *a = (adv_t){0};
+    if (a->type == ADV_SOCD && a->p0 > 3) a->p0 = 0;
+    if (a->type == ADV_DKS && a->p0 > 100) a->p0 = 0;
+  }
+  s->nkro = s->nkro ? 1 : 0;
 }
 
 #ifndef HOST_TEST

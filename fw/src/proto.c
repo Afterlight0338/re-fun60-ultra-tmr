@@ -79,6 +79,7 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     settings.press_pct = q[15];
     settings.release_pct = q[16];
     settings.top_dz = q[17]; settings.bottom_dz = q[18]; settings.rt_continuous = q[19];
+    settings.nkro = q[20];
     settings_sanitize(&settings);
     /* fall through - reply with what was actually stored */
   case OP_GET_CFG:
@@ -87,6 +88,38 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     r[14] = settings.debounce_ms;
     r[15] = settings.press_pct; r[16] = settings.release_pct;
     r[17] = settings.top_dz; r[18] = settings.bottom_dz; r[19] = settings.rt_continuous;
+    r[20] = settings.nkro;
+    break;
+
+  case OP_GET_ADV:
+  case OP_SET_ADV: {
+    unsigned first = q[1], n = 0;
+    if (first < ADV_MAX) {
+      n = ADV_MAX - first < ADV_PER_PAGE ? ADV_MAX - first : ADV_PER_PAGE;
+      if (q[0] == OP_SET_ADV) {
+        if (q[2] < n) n = q[2];
+        for (unsigned i = 0; i < n; i++) {
+          const uint8_t *e = q + 8 + 12 * i;
+          adv_t *a = &settings.adv[first + i];
+          a->type = e[0]; a->a = e[1]; a->b = e[2]; a->p0 = e[3];
+          for (unsigned j = 0; j < 4; j++) { a->code[j] = e[4 + j]; a->act[j] = e[8 + j]; }
+        }
+        settings_sanitize(&settings);
+      }
+      for (unsigned i = 0; i < n; i++) {
+        const adv_t *a = &settings.adv[first + i];
+        uint8_t *e = r + 8 + 12 * i;
+        e[0] = a->type; e[1] = a->a; e[2] = a->b; e[3] = a->p0;
+        for (unsigned j = 0; j < 4; j++) { e[4 + j] = a->code[j]; e[8 + j] = a->act[j]; }
+      }
+    }
+    r[1] = q[1]; r[2] = (uint8_t)n;
+    break;
+  }
+
+  case OP_DEBUG_PRESS:
+    if (st->keys && q[1] < SCAN_SITES) st->keys->force[q[1]] = q[2] == 1;
+    r[1] = q[1]; r[2] = q[2];
     break;
 
   case OP_GET_KEYCFG:

@@ -14,6 +14,10 @@ extern proto_state_t hid_proto;          /* vendor protocol state (main sets .ra
 int hid_send_keyboard(usbd_core_type *udev, const uint8_t report[8]);
 /* Queue a consumer usage (0 = released); 0 if sent, -1 if not configured or still busy. */
 int hid_send_consumer(usbd_core_type *udev, uint16_t usage);
+/* Queue an NKRO report (modifiers + bitmap, keys.h NKRO_LEN bytes) on interface 2, same rules. */
+int hid_send_nkro(usbd_core_type *udev, const uint8_t *report);
+/* The host left the boot keyboard in report protocol (only a BIOS asks for boot protocol). */
+int hid_report_protocol(void);
 /* Last LED state the host sent (Num Lock bit 0, Caps Lock bit 1, Scroll Lock bit 2). */
 uint8_t hid_host_leds(void);
 

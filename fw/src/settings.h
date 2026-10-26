@@ -11,11 +11,13 @@
 #include <stdint.h>
 #include "board.h"
 #include "leds.h"
+#include "keys.h"
 
 #define SETTINGS_ADDR     0x08027000u
 #define SETTINGS_MAGIC    0x53363046u    /* "F06S" */
-#define SETTINGS_VERSION  5u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
-                                          * 5: per-key actuation, rapid trigger, dead zones, saved travel (v0.13) */
+#define SETTINGS_VERSION  6u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
+                                          * 5: per-key actuation, rapid trigger, dead zones, saved travel (v0.13);
+                                          * 6: advanced keys, NKRO (v0.14) */
 
 typedef struct {
   uint8_t  keymap[2][SCAN_SITES];        /* [0] base, [1] Fn (KC_NO = base key) */
@@ -30,6 +32,8 @@ typedef struct {
   uint8_t  rt_down[SCAN_SITES];          /* rapid trigger: percent down that presses again, 0 = off */
   uint8_t  rt_up[SCAN_SITES];            /* percent up that releases, 0 = same as rt_down */
   uint16_t span[SCAN_SITES];             /* saved travel (rest - bottom) in counts, 0 = learn it */
+  adv_t    adv[ADV_MAX];                 /* advanced keys, keys.h */
+  uint8_t  nkro;                         /* USB: every key at once (interface 2), else 6 keys */
 } settings_t;
 
 extern settings_t settings;

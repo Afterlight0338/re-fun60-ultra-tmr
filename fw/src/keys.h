@@ -60,6 +60,31 @@
 #define KC_BATT     0xBDu          /* hold: battery level on Esc (indicators.h) */
 #define KC_WINLOCK  0xBEu          /* toggle: Win keys do nothing */
 
+/* advanced keys (v0.14), a table of ADV_MAX in settings.h. A key used by a mod-tap, toggle or
+ * DKS entry belongs to it (its keymap entries are ignored); SOCD only filters two normal keys.
+ *   ADV_SOCD   a, b: when both are down only one counts. p0: 0 the last pressed (SnapKey),
+ *              1 a wins, 2 b wins, 3 neither. Letting go of the winner brings the other back.
+ *   ADV_MODTAP a: tapped (released within p0 x 10 ms, 0 = 200 ms) sends code[0]; held longer,
+ *              or held while another key goes down, holds code[1] until released.
+ *   ADV_TOGGLE a: a tap latches code[0] down until the next press; a long press is a normal key.
+ *   ADV_DKS    a: up to 4 codes, each with an action at 4 points: press (actuation), bottom
+ *              (travel reaches p0 %, 0 = 90), off the bottom (back above it), release.
+ *              act[i] = 2 bits per point, point 0 in bits 0-1: 0 nothing, 1 down, 2 up, 3 tap. */
+#define ADV_MAX     16u
+#define ADV_NONE    0u
+#define ADV_SOCD    1u
+#define ADV_MODTAP  2u
+#define ADV_TOGGLE  3u
+#define ADV_DKS     4u
+#define ADV_TAP_MS  20u            /* how long a tapped code stays down: one report on any link */
+#define NKRO_LEN    16u            /* modifiers + bitmap of usages 0x00-0x77 (report ID added by usb_hid) */
+
+typedef struct {
+  uint8_t type, a, b, p0;
+  uint8_t code[4];
+  uint8_t act[4];
+} adv_t;
+
 typedef struct {
   uint8_t  raw_pressed[SCAN_SITES];  /* threshold state (with hysteresis) */
   uint16_t rest[SCAN_SITES];         /* highest reading seen (key up) */
@@ -68,6 +93,13 @@ typedef struct {
   uint8_t  pct[SCAN_SITES];          /* travel now, percent, dead zones applied */
   uint8_t  ext[SCAN_SITES];          /* rapid trigger: deepest point while down, highest while up */
   uint8_t  rt_live[SCAN_SITES];      /* rapid trigger engaged (actuated since the last reset) */
+  uint8_t  force[SCAN_SITES];        /* pressed from the host (proto DEBUG_PRESS), for tests */
+  uint8_t  eff[SCAN_SITES];          /* pressed and counted: SOCD applied, advanced-key sites out */
+  uint32_t down_ms[SCAN_SITES];      /* when each key went down (SOCD: the last one wins) */
+  uint8_t  held[32];                 /* codes held by advanced keys, bit per code */
+  uint8_t  tap_code[8];              /* tapped codes and when they come up again */
+  uint32_t tap_until[8];
+  struct { uint8_t on, latched, bottom; uint32_t since; } adv[ADV_MAX];
   uint8_t  actions;                  /* LED_ACT_* pressed and not yet taken */
   uint8_t  winlock;                  /* KC_WINLOCK toggles it; GUI modifiers dropped */
   debounce_t db;
@@ -80,6 +112,8 @@ void keys_init(keys_t *k);
 int  keys_update(keys_t *k, const uint16_t *raw, uint32_t now_ms);
 /* Build the 8-byte boot report (modifiers, 0, 6 keys; 6+ keys = ErrorRollOver). */
 void keys_report(const keys_t *k, uint8_t report[8]);
+/* The same keys as an NKRO report: modifiers, then a bit per usage 0x00-0x77. */
+void keys_report_nkro(const keys_t *k, uint8_t report[NKRO_LEN]);
 /* HID consumer usage currently held (0 = none). */
 uint16_t keys_consumer(const keys_t *k);
 /* Lighting actions (LED_ACT_*) pressed since the last call. */
