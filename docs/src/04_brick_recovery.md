@@ -168,8 +168,8 @@ nix-shell -p python3 --run driver/serve.sh     # then open http://127.0.0.1:8060
 Pages: Device (battery, switching between USB, Bluetooth 1 to 3 and 2.4G, pairing), Keys
 (base and Fn layers; click, Shift-click, drag a box or press keys on the keyboard to select;
 swap, presets), Travel (actuation, live depth of every key, a travel graph for one key),
-Lighting, Test (press every key once, double-press tester) and Settings (save, backup, firmware,
-theme). Without a keyboard it runs a demo that your own keyboard drives.
+Lighting, Test (press every key once, double-press tester), Firmware (version list, downloads, an
+experimental browser flasher) and Settings (save, backup, theme). Without a keyboard it runs a demo that your own keyboard drives.
 
 It needs a Chromium-based browser (Chrome, Chromium, Brave) for WebHID, plus access to the
 keyboard's hidraw node. A udev rule does that:

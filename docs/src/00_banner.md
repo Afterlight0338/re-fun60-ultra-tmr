@@ -44,6 +44,9 @@ Newest first. Small wording fixes are not listed.
 
 **2026-10-26**
 
+* FUN60 Studio: Firmware page with a version list (v0.11 stable, v0.12 experimental), downloads
+  for ry-flash, and an **experimental** browser flasher (a port of ry-flash; the command line
+  stays the recommended way). It keeps your settings and offers to put them back after a flash.
 * FUN60 Studio reworked after MonsGeek's own driver: Device, Keys, Travel, Lighting, Test and
   Settings pages; switch connection mode and pair from the page; box and press-to-select;
   live travel of every key. Hosted at https://driver.vivlos.dev.
@@ -72,6 +75,11 @@ driver. Both meant replacing the firmware, so that's what this is.
 
 Linux, as written. Flashing goes through the keyboard's own bootloader over USB, so there's no
 need to open the case. Everything below uses nix-shell; any Linux with the same tools works too.
+
+The command line below is the recommended way. There's also an **experimental** flasher in the
+web driver (https://driver.vivlos.dev, Firmware page) with a version list marked stable or
+experimental. It sends the same bytes as ry-flash, checked frame by frame, but it hasn't flashed a
+real keyboard yet. Its Download links give the same files for ry-flash.
 
 **0.1 Build.**
 
