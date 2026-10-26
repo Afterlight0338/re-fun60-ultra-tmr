@@ -41,6 +41,9 @@ Newest first. Small wording fixes are not listed.
 
 **2026-10-26**
 
+* FUN60 Studio reworked after MonsGeek's own driver: Device, Keys, Travel, Lighting, Test and
+  Settings pages; switch connection mode and pair from the page; box and press-to-select;
+  live travel of every key. Hosted at https://driver.vivlos.dev.
 * Firmware v0.12: basic magnetic switch support, not tested on the keyboard yet. Each key learns
   where it rests and how deep it goes, like stock does, and presses at a percent of that travel
   (50 % by default, released under 35 %). Mechanical and magnetic switches can be mixed. The web
@@ -161,7 +164,8 @@ Working, tested on my board:
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
 - battery level and charging state
 - settings saved on the keyboard: keymap, lighting, debounce, actuation
-- FUN60 Studio, a web driver: remap, lighting, performance, save and restore, a double-press tester
+- FUN60 Studio, a web driver at driver.vivlos.dev: remap, connection modes, live key travel,
+  lighting, a press test and a double-press tester, save and restore
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
 Built, not tested yet:
@@ -387,11 +391,17 @@ top or bottom) and it carries on in the last wireless mode.
 
 ## 10. Web driver
 
-FUN60 Studio, in [`driver/`](driver/):
+FUN60 Studio, in [`driver/`](driver/). It's hosted at **https://driver.vivlos.dev**, or run it locally:
 
 ```sh
 nix-shell -p python3 --run driver/serve.sh     # then open http://127.0.0.1:8060
 ```
+
+Pages: Device (battery, switching between USB, Bluetooth 1 to 3 and 2.4G, pairing), Keys
+(base and Fn layers; click, Shift-click, drag a box or press keys on the keyboard to select;
+swap, presets), Travel (actuation, live depth of every key, a travel graph for one key),
+Lighting, Test (press every key once, double-press tester) and Settings (save, backup, firmware,
+theme). Without a keyboard it runs a demo that your own keyboard drives.
 
 It needs a Chromium-based browser (Chrome, Chromium, Brave) for WebHID, plus access to the
 keyboard's hidraw node. A udev rule does that:
