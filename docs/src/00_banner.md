@@ -29,18 +29,43 @@ Two things started this:
 It turned into a full replacement firmware. It's still a work in progress, so read the
 [status list](#2-status) before you flash anything.
 
-Written 2026-09-30, updated 2026-10-26 for firmware v0.12. Stock firmware analysed: v306 for board 2307.
+Written 2026-09-30, updated 2026-10-26 for firmware v0.17. Stock firmware analysed: v306 for board 2307.
 
-> **v0.12 is extremely experimental.** It was written without the keyboard plugged in and has
-> never run on one: not with magnetic switches, not even with mechanical ones. It could type
-> wrong, miss keys or not type at all. If you just want a working keyboard, flash **v0.11**
-> instead (`git checkout v0.11`, then build as below): mechanical switches only, tested, typing
-> every day on my board. If v0.12 misbehaves, recovery is the same as always ([section 4](#4-the-brick)),
-> but holding Esc while plugging in may not work with a magnetic Esc; the watchdog failsafe does.
+> **v0.17 is experimental.** It ran on my board all night and every feature was checked on the
+> real USB link, but by test tools pressing keys from the PC, not by fingers on keys. The magnetic
+> part is built on real readings from two magnetic switches (Space and Fn), not a full magnetic
+> board. If you just want a working keyboard, flash **v0.11** (`git checkout v0.11`, then build as
+> below): mechanical switches only, typing every day on my board for a month. If v0.17 misbehaves,
+> recovery is the same as always ([section 4](#4-the-brick)), but holding Esc while plugging in
+> may not work with a magnetic Esc; the watchdog failsafe does.
 
 ## -2. Changelog
 
 Newest first. Small wording fixes are not listed.
+
+**2026-10-26 (night)**
+
+* Firmware v0.13 to v0.17, **experimental**, each one flashed and checked on my board:
+  * v0.13: per-key actuation point, rapid trigger (press and release sensitivity, optional
+    continuous mode), top and bottom dead zones, and calibration that survives a power cycle
+    (each key's travel is saved, its rest position is still learned at power-on).
+  * v0.14: NKRO over USB (every key at once, on a second keyboard report, so a BIOS still gets
+    the 6-key one), and advanced keys: SnapKey / SOCD, mod-tap, toggle and dynamic keystroke (DKS).
+  * v0.15: four new lighting effects (Spectrum, Reactive, Ripple, Custom per-key colours) and an
+    effect speed.
+  * v0.16: macros, 8 of up to 32 steps, played from a key once or again while held.
+  * v0.17: 4 profiles, switched from the driver or from Profile 1-4 keys you can put anywhere.
+  * Settings reset to defaults once with each of these versions.
+* First real measurements of magnetic switches on this board: a magnetic Space rests at 1806 and
+  bottoms out at 1211, a magnetic Fn 1290 and 797, noise about 3 counts. The reading falls on
+  press, as stock's maths assumes, so the v0.12 model holds. The capture is in `fw/test/`, and the
+  host tests replay it through the real key code.
+* FUN60 Studio: Advanced page (SnapKey, mod-tap, toggle, DKS, macros with a recorder), per-key
+  actuation and rapid trigger on the Travel page, calibration (store, clear, relearn), new
+  lighting effects and per-key colour painting, NKRO and profiles on the Settings page. It no
+  longer mixes up replies when two tabs are open at once.
+* The browser flasher has now flashed a real keyboard: v0.11 and v0.12 from Brave, 2 s for the
+  bootloader, under 2 s to write, settings put back after.
 
 **2026-10-26**
 
@@ -78,8 +103,8 @@ need to open the case. Everything below uses nix-shell; any Linux with the same 
 
 The command line below is the recommended way. There's also an **experimental** flasher in the
 web driver (https://driver.vivlos.dev, Firmware page) with a version list marked stable or
-experimental. It sends the same bytes as ry-flash, checked frame by frame, but it hasn't flashed a
-real keyboard yet. Its Download links give the same files for ry-flash.
+experimental. It sends the same bytes as ry-flash, checked frame by frame, and it has flashed my
+keyboard a few times now. Its Download links give the same files for ry-flash.
 
 **0.1 Build.**
 

@@ -21,7 +21,7 @@ Working, tested on my board:
 - USB typing with the stock layout, plus the Fn layer (F keys, media, arrows)
 - **no more double typing**: 0 doubles in 121 hard taps, where stock did 13 to 165 per run
   ([numbers below](#3-the-double-typing))
-- per-key RGB: static, breathe, rainbow, brightness, on/off
+- per-key RGB: static, breathe, rainbow, brightness, on/off (v0.11; the v0.15 effects below)
 - **2.4G wireless** through the stock dongle (Fn + Y). A dongle paired under stock just works.
 - stock's indicator lights: the mode key blinks or stays lit, battery level on Esc
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
@@ -31,13 +31,26 @@ Working, tested on my board:
   lighting, a press test and a double-press tester, save and restore
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
+Running on my board, checked through the real USB reports, but not typed on by hand yet (v0.13
+to v0.17):
+
+- magnetic switches: each key learns its rest and bottom like stock (bottom starts 400 counts
+  under rest) and presses at a percent of that travel. Real readings from a magnetic Space and Fn
+  fit this, and a recording of them pressed and released replays correctly through the key code.
+- per-key actuation, rapid trigger, dead zones, saved calibration
+- NKRO over USB
+- SnapKey / SOCD, mod-tap, toggle, dynamic keystroke (DKS), macros
+- lighting: spectrum, reactive, ripple, custom per-key colours, effect speed
+- 4 profiles
+- the browser flasher (it flashed v0.11 and v0.12 from Brave)
+
 Built, not tested yet:
 
-- magnetic switches (v0.12): each key learns its rest and bottom like stock (bottom starts
-  400 counts under rest), presses at a percent of that travel. Holding Esc while plugging in
-  still uses mechanical thresholds, so with a magnetic Esc it may not reach the bootloader; the
-  watchdog failsafe still does.
+- Holding Esc while plugging in still uses mechanical thresholds, so with a magnetic Esc it may
+  not reach the bootloader; the watchdog failsafe still does.
 - Bluetooth 1 to 3 (Fn + E, R, T; hold 3 s to pair, it shows up as "FUN60 Ultra-1/2/3")
+- Reactive and ripple lighting were checked in the host tests and for stability on the board, but
+  I haven't looked at the LEDs while they run.
 
 Not done:
 
@@ -45,9 +58,9 @@ Not done:
   Don't leave it on battery for days.
 - the web driver over 2.4G (USB cable only for now)
 - Mac mode: the switch's top position is read but ignored
-- NKRO: 6 keys at once, like a boot keyboard
-- magnetic switch extras: rapid trigger, a different actuation per key, calibration that
-  survives a power cycle, stock's travel-to-millimetre curve (actuation is a percent, not mm)
+- NKRO over 2.4G and Bluetooth (wireless sends 6 keys at once)
+- stock's travel-to-millimetre curve: actuation and rapid trigger are percents of each key's
+  travel, not millimetres
 - the MonsGeek app will not work with this firmware, and that's not planned
 
 ## 3. The double typing

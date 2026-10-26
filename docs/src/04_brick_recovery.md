@@ -157,6 +157,26 @@ The layout is stock's. Fn layer:
 With the cable in, the keyboard starts in USB mode. Unplug it (with the Caps Lock switch at the
 top or bottom) and it carries on in the last wireless mode.
 
+From v0.13 on, more of it is set in the web driver and saved on the keyboard:
+
+- **Per key:** an actuation point, and rapid trigger. After its first press, a rapid-trigger key
+  releases as soon as it comes up by the release amount and presses again when it goes down by
+  the press amount, without the 8 ms release hold-off. All in percent of that key's own travel.
+- **Dead zones:** travel near the top reads 0 %, near the bottom 100 %.
+- **Calibration:** press every magnetic key all the way down once, then store it. The travel is
+  saved; rest is still learned at power-on, so a key held down while plugging in reads 0 % until
+  it is let go, and never types on its own.
+- **NKRO** over USB, on a second keyboard report (interface 2, report ID 2). A BIOS asks for the
+  boot protocol and gets the plain 6-key report. Off in Settings if something doesn't like it.
+- **Advanced keys** (16): SnapKey / SOCD on two keys (last pressed wins, either one wins, or
+  neither), mod-tap (tap for one key, hold for another), toggle (a tap latches it down), dynamic
+  keystroke (up to 4 keys, each doing something at press, bottom, off the bottom and release),
+  and macro keys.
+- **Macros** (8, up to 32 steps each): key down, key up, tap, wait. Every key step takes 20 ms so
+  each one reaches the PC as its own report; whatever a macro leaves down comes up at its end.
+- **Profiles** (4): keymap, lighting, actuation, advanced keys and macros each. Calibration and the
+  wireless mode are shared. Profile 1-4 keys can go anywhere in the keymap.
+
 ## 10. Web driver
 
 FUN60 Studio, in `driver/`. It's hosted at **https://driver.vivlos.dev**, or run it locally:
@@ -167,9 +187,12 @@ nix-shell -p python3 --run driver/serve.sh     # then open http://127.0.0.1:8060
 
 Pages: Device (battery, switching between USB, Bluetooth 1 to 3 and 2.4G, pairing), Keys
 (base and Fn layers; click, Shift-click, drag a box or press keys on the keyboard to select;
-swap, presets), Travel (actuation, live depth of every key, a travel graph for one key),
-Lighting, Test (press every key once, double-press tester), Firmware (version list, downloads, an
-experimental browser flasher) and Settings (save, backup, theme). Without a keyboard it runs a demo that your own keyboard drives.
+swap, presets), Travel (actuation, dead zones, per-key actuation and rapid trigger, calibration,
+live depth of every key, a travel graph for one key), Advanced (SnapKey, mod-tap, toggle, DKS,
+macros with a recorder), Lighting (effects, speed, colour, per-key colours), Test (press every key
+once, double-press tester), Firmware (version list, downloads, a browser flasher) and Settings
+(save, profiles, NKRO, backup, theme). Pages for features a firmware doesn't have say which
+version they need. Without a keyboard it runs a demo that your own keyboard drives.
 
 It needs a Chromium-based browser (Chrome, Chromium, Brave) for WebHID, plus access to the
 keyboard's hidraw node. A udev rule does that:

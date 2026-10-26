@@ -17,6 +17,8 @@ Things that were believed, written down or acted on, and turned out wrong.
 ### 13.2 Open questions
 
 - Bluetooth: built, never tested.
+- Magnetic switches: the travel model rests on two switches (Space and Fn). Other switch models
+  could rest outside 1000 to 3300 counts or travel less than 400, and then they never type.
 - Sleep: stock's timed deep sleep is mapped (12.7), but the ERTC clock and prescaler, and whether
   the watchdog runs in deep sleep, are not known yet.
 - Radio state values other than 3 and 4, and frames 0x95 to 0x98 (12.8).

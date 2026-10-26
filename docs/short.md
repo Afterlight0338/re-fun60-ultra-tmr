@@ -16,7 +16,7 @@ has the brick, the recovery, the wrong turns and every pin.
 | Keyboard | MonsGeek FUN60 Ultra **TMR**, board ID 2307 |
 | USB ID | `3151:5030` when running |
 | Stock firmware | v306 |
-| Switches | **mechanical**. Magnetic support is new in v0.12, **extremely experimental**, never run on a keyboard; tag `v0.11` is the last tested firmware |
+| Switches | **mechanical**, or magnetic with v0.13 and later, which are **experimental**: checked on my board with test tools, not typed on by hand yet. Tag `v0.11` is the firmware I type on every day |
 
 Tested on exactly one keyboard.
 
@@ -27,9 +27,10 @@ Tested on exactly one keyboard.
 | USB typing, Fn layer, media, arrows | **sleep**: on battery the chip runs flat out |
 | per-key RGB and stock's indicator lights | Bluetooth (built, never tested) |
 | 2.4G through the stock dongle | the web driver over 2.4G |
-| battery level and charging | Mac mode, NKRO (6 keys at once) |
-| settings saved on the keyboard | rapid trigger, per-key actuation, calibration |
-| FUN60 Studio web driver | the MonsGeek app (never planned) |
+| battery level and charging | Mac mode, NKRO over wireless |
+| settings saved on the keyboard | the MonsGeek app (never planned) |
+| FUN60 Studio web driver | |
+| v0.13 to v0.17, experimental: rapid trigger, per-key actuation, dead zones, calibration, NKRO over USB, SnapKey, mod-tap, toggle, DKS, macros, 4 profiles, more lighting effects | |
 
 ## What you need
 
