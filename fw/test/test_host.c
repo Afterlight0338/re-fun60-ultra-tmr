@@ -383,7 +383,7 @@ int main(void)
   printf("[4] LEDs: encoding and power cap\n");
   {
     static uint8_t out[LED_FRAME_BYTES];
-    led_state_t s = { 0, LED_STATIC, 4, 255, 255, 255 };
+    led_state_t s = { 0, LED_STATIC, 4, 255, 255, 255, 2, {{0}} };
     unsigned all_zero_bits = 1;
     leds_frame(&s, 0, NULL, out);
     for (unsigned i = 0; i < LED_FRAME_BYTES; i++) all_zero_bits &= out[i] == 0xC0;
@@ -406,7 +406,39 @@ int main(void)
     leds_frame(&s, 0, NULL, out);
     CHECK(memcmp(out, out + 24 * 20, 24) != 0, "rainbow: LEDs 0 and 20 differ");
     leds_apply(&s, LED_ACT_BRI_UP | LED_ACT_EFFECT);
-    CHECK(s.level == 3 && s.effect == LED_STATIC, "brightness up + next effect (wraps to static)");
+    CHECK(s.level == 3 && s.effect == LED_SPECTRUM, "brightness up + next effect");
+    s.effect = LED_EFFECTS - 1; leds_apply(&s, LED_ACT_EFFECT);
+    CHECK(s.effect == LED_STATIC, "next effect wraps to static");
+
+    /* v0.15 effects; LED n's green byte decoded from the frame */
+#define G8(n) ({ unsigned v_ = 0; for (unsigned b_ = 0; b_ < 8; b_++) v_ = v_ << 1 | (out[(n) * 24 + b_] == 0xF0); v_; })
+    static uint8_t pressed[SCAN_SITES];
+    CHECK(leds_of_site(0) == 0 && leds_of_site(3 * SCAN_CH + 1) == 24 && leds_of_site(0 * SCAN_CH + 2) == 28 &&
+          leds_of_site(2 * SCAN_CH + 4) == 54 && leds_of_site(6 * SCAN_CH + 6) == 56 && leds_of_site(12 * SCAN_CH + 4) == 60 &&
+          leds_of_site(1 * SCAN_CH + 3) == -1, "LED map: Esc 0, E 24, Caps 28, Win 54, Space 56, RCtrl 60 (stock's), none on an empty site");
+    led_state_t e = { 1, LED_SPECTRUM, 2, 0, 0, 0, 2, {{0}} };
+    leds_frame(&e, 1000, NULL, out);
+    CHECK(memcmp(out, out + 24 * 40, 24) == 0, "spectrum: the whole board one colour");
+    e.effect = LED_REACTIVE; e.r = e.g = e.b = 255;
+    leds_keys(pressed, 2000);
+    leds_frame(&e, 2000, NULL, out);
+    CHECK(G8(30) == 0, "reactive: dark before any press");
+    pressed[2 * SCAN_CH + 2] = 1; leds_keys(pressed, 2010); pressed[2 * SCAN_CH + 2] = 0; leds_keys(pressed, 2020);   /* S */
+    leds_frame(&e, 2020, NULL, out);
+    unsigned lit0 = G8(30);
+    leds_frame(&e, 2500, NULL, out);
+    unsigned lit1 = G8(30);
+    leds_frame(&e, 3100, NULL, out);
+    CHECK(lit0 > 70 && lit1 > 0 && lit1 < lit0 && G8(30) == 0 && G8(31) == 0, "reactive: S lights, fades, goes dark; D never lit");
+    e.effect = LED_RIPPLE;
+    leds_frame(&e, 2010, NULL, out);
+    unsigned at0 = G8(30), far0 = G8(34);
+    leds_frame(&e, 2210, NULL, out);
+    CHECK(at0 > 0 && far0 == 0 && G8(34) > 0, "ripple: starts on S, reaches H (4 keys away) 200 ms later");
+    e.effect = LED_CUSTOM; e.custom[5][1] = 200;
+    leds_frame(&e, 0, NULL, out);
+    CHECK(G8(5) > 0 && G8(6) == 0, "custom: only the LED given a colour lights");
+#undef G8
   }
 
   printf("[5] driver protocol v1\n");

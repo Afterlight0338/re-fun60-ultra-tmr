@@ -303,6 +303,7 @@ int main(void)
     radio_task(now);
 
     leds_apply(&settings.led, keys_take_actions(&keys));
+    leds_keys(keys.pressed, now);
     ind_in_t in = {
       .mode = radio.mode, .radio_state = radio.state, .status_seen = radio.status_seen,
       .pairing_24g = radio.pairing_24g,

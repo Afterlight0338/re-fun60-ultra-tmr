@@ -17,11 +17,17 @@
  * ponytail: estimate from the typical datasheet current, not measured on this board. */
 #define LED_BUDGET_MA    300u
 
-enum { LED_STATIC, LED_BREATHE, LED_RAINBOW, LED_EFFECTS };
+/* Spectrum: the whole board cycles through the hues. Reactive: keys light up in the colour when
+ * pressed and fade. Ripple: a ring in the colour spreads from each pressed key. Custom: each
+ * key's own colour (led_state_t.custom, set from the driver). */
+enum { LED_STATIC, LED_BREATHE, LED_RAINBOW, LED_SPECTRUM, LED_REACTIVE, LED_RIPPLE, LED_CUSTOM, LED_EFFECTS };
+#define LED_SPEEDS 5u
 
 typedef struct {
   uint8_t on, effect, level;                     /* level 0..LED_LEVELS-1 */
-  uint8_t r, g, b;                               /* colour for Static and Breathe */
+  uint8_t r, g, b;                               /* colour for Static, Breathe, Reactive, Ripple */
+  uint8_t speed;                                 /* 0..LED_SPEEDS-1, animated effects */
+  uint8_t custom[LED_COUNT][3];                  /* Custom: per LED (chain order), r g b */
 } led_state_t;
 #define LED_LEVELS 5u
 
@@ -46,6 +52,10 @@ typedef struct {
 } led_overlay_t;
 
 void leds_apply(led_state_t *s, uint8_t actions);
+/* Keys pressed now (SCAN_SITES, as keys.h); new presses start Reactive / Ripple. */
+void leds_keys(const uint8_t *pressed, uint32_t now_ms);
+/* The LED under scan site s, or -1 (no key there). */
+int leds_of_site(unsigned site);
 /* Render state s at time t, plus overlay ov (may be NULL), into out[LED_FRAME_BYTES];
  * returns the estimated current in mA. */
 uint32_t leds_frame(const led_state_t *s, uint32_t t_ms, const led_overlay_t *ov, uint8_t *out);

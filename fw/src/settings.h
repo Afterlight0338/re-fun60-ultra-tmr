@@ -15,9 +15,9 @@
 
 #define SETTINGS_ADDR     0x08027000u
 #define SETTINGS_MAGIC    0x53363046u    /* "F06S" */
-#define SETTINGS_VERSION  6u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
+#define SETTINGS_VERSION  7u             /* 2: + conn_mode (v0.07); 3: new Fn keys (v0.08); 4: % thresholds (v0.12);
                                           * 5: per-key actuation, rapid trigger, dead zones, saved travel (v0.13);
-                                          * 6: advanced keys, NKRO (v0.14) */
+                                          * 6: advanced keys, NKRO (v0.14); 7: effects, speed, key colours (v0.15) */
 
 typedef struct {
   uint8_t  keymap[2][SCAN_SITES];        /* [0] base, [1] Fn (KC_NO = base key) */

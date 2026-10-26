@@ -11,7 +11,8 @@ void settings_defaults(settings_t *s)
 {
   for (unsigned l = 0; l < 2; l++)
     for (unsigned i = 0; i < SCAN_SITES; i++) s->keymap[l][i] = keymap_default[l][i];
-  s->led = (led_state_t){ .on = 1, .effect = LED_RAINBOW, .level = 2, .r = 255, .g = 255, .b = 255 };
+  s->led = (led_state_t){ .on = 1, .effect = LED_RAINBOW, .level = 2, .r = 255, .g = 255, .b = 255, .speed = 2 };
+  for (unsigned i = 0; i < LED_COUNT; i++) s->led.custom[i][0] = s->led.custom[i][1] = s->led.custom[i][2] = 255;
   s->debounce_ms = KEY_DEBOUNCE_MS;
   s->press_pct = KEY_PRESS_PCT;
   s->release_pct = KEY_RELEASE_PCT;
@@ -31,6 +32,7 @@ void settings_sanitize(settings_t *s)
   s->led.on = s->led.on ? 1 : 0;
   if (s->led.effect >= LED_EFFECTS) s->led.effect = LED_STATIC;
   if (s->led.level >= LED_LEVELS) s->led.level = LED_LEVELS - 1;
+  if (s->led.speed >= LED_SPEEDS) s->led.speed = LED_SPEEDS - 1;
   if (s->debounce_ms > 50) s->debounce_ms = 50;
   if (s->press_pct < 10) s->press_pct = 10;               /* lower and noise alone could press */
   if (s->press_pct > 95) s->press_pct = 95;

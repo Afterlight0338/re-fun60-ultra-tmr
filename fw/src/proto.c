@@ -80,6 +80,7 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     settings.release_pct = q[16];
     settings.top_dz = q[17]; settings.bottom_dz = q[18]; settings.rt_continuous = q[19];
     settings.nkro = q[20];
+    settings.led.speed = q[21];
     settings_sanitize(&settings);
     /* fall through - reply with what was actually stored */
   case OP_GET_CFG:
@@ -89,7 +90,24 @@ void proto_dispatch(proto_state_t *st, uint8_t *r)
     r[15] = settings.press_pct; r[16] = settings.release_pct;
     r[17] = settings.top_dz; r[18] = settings.bottom_dz; r[19] = settings.rt_continuous;
     r[20] = settings.nkro;
+    r[21] = settings.led.speed;
     break;
+
+  case OP_GET_LEDMAP:
+  case OP_SET_LEDMAP: {
+    unsigned first = q[1] * LEDMAP_PER_PAGE, n = 0;
+    if (first < LED_COUNT) {
+      n = LED_COUNT - first < LEDMAP_PER_PAGE ? LED_COUNT - first : LEDMAP_PER_PAGE;
+      if (q[0] == OP_SET_LEDMAP && q[2] < n) n = q[2];
+      for (unsigned i = 0; i < n; i++)
+        for (unsigned c = 0; c < 3; c++) {
+          if (q[0] == OP_SET_LEDMAP) settings.led.custom[first + i][c] = q[8 + 3 * i + c];
+          r[8 + 3 * i + c] = settings.led.custom[first + i][c];
+        }
+    }
+    r[1] = q[1]; r[2] = (uint8_t)n;
+    break;
+  }
 
   case OP_GET_ADV:
   case OP_SET_ADV: {
