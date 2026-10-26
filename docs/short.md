@@ -16,7 +16,7 @@ has the brick, the recovery, the wrong turns and every pin.
 | Keyboard | MonsGeek FUN60 Ultra **TMR**, board ID 2307 |
 | USB ID | `3151:5030` when running |
 | Stock firmware | v306 |
-| Switches | **mechanical**. The stock magnetic switches probably won't work right |
+| Switches | **mechanical**. Magnetic support is new in v0.12 and untested |
 
 Tested on exactly one keyboard.
 

@@ -29,14 +29,22 @@ Two things started this:
 It turned into a full replacement firmware. It's still a work in progress, so read the
 [status list](#2-status) before you flash anything.
 
-Written 2026-09-30, firmware v0.11. Stock firmware analysed: v306 for board 2307.
+Written 2026-09-30, updated 2026-10-26 for firmware v0.12. Stock firmware analysed: v306 for board 2307.
 
-> **This firmware is for mechanical switches.** It treats every key as a plain switch, so the
-> stock magnetic switches probably won't work right. Tested on exactly one keyboard.
+> **This firmware was made for mechanical switches.** v0.12 adds basic magnetic switch support
+> (per-key actuation, learned the way stock does it) but nobody has typed on it with magnetic
+> switches yet. Tested on exactly one keyboard.
 
 ## -2. Changelog
 
 Newest first. Small wording fixes are not listed.
+
+**2026-10-26**
+
+* Firmware v0.12: basic magnetic switch support, not tested on the keyboard yet. Each key learns
+  where it rests and how deep it goes, like stock does, and presses at a percent of that travel
+  (50 % by default, released under 35 %). Mechanical and magnetic switches can be mixed. The web
+  driver's thresholds are percents now (protocol v5). Saved settings reset to defaults once.
 
 **2026-10-25**
 

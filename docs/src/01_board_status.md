@@ -26,12 +26,16 @@ Working, tested on my board:
 - stock's indicator lights: the mode key blinks or stays lit, battery level on Esc
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
 - battery level and charging state
-- settings saved on the keyboard: keymap, lighting, debounce, thresholds
+- settings saved on the keyboard: keymap, lighting, debounce, actuation
 - FUN60 Studio, a web driver: remap, lighting, performance, save and restore, a double-press tester
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
 Built, not tested yet:
 
+- magnetic switches (v0.12): each key learns its rest and bottom like stock (bottom starts
+  400 counts under rest), presses at a percent of that travel. Holding Esc while plugging in
+  still uses mechanical thresholds, so with a magnetic Esc it may not reach the bootloader; the
+  watchdog failsafe still does.
 - Bluetooth 1 to 3 (Fn + E, R, T; hold 3 s to pair, it shows up as "FUN60 Ultra-1/2/3")
 
 Not done:
@@ -41,9 +45,8 @@ Not done:
 - the web driver over 2.4G (USB cable only for now)
 - Mac mode: the switch's top position is read but ignored
 - NKRO: 6 keys at once, like a boot keyboard
-- magnetic switch features: rapid trigger, per-key actuation, calibration. The firmware treats
-  every key as a plain switch with one threshold tuned for mechanical switches, so the stock
-  magnetic switches probably won't work right.
+- magnetic switch extras: rapid trigger, a different actuation per key, calibration that
+  survives a power cycle, stock's travel-to-millimetre curve (actuation is a percent, not mm)
 - the MonsGeek app will not work with this firmware, and that's not planned
 
 ## 3. The double typing
