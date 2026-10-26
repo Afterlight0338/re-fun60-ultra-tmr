@@ -315,8 +315,18 @@ const newKc = () => ({ act: new Uint8Array(SITES), rtDown: new Uint8Array(SITES)
 const copyKc = k => ({ act: k.act.slice(), rtDown: k.rtDown.slice(), rtUp: k.rtUp.slice() });
 const eqKc = (a, b) => KC_FIELDS.every(f => a[f].every((v, i) => v === b[f][i]));
 /* advanced keys (protocol v7, fw v0.14), fw/src/keys.h: 16 entries of type, a, b, p0, code[4], act[4] */
-const ADV = { NONE: 0, SOCD: 1, MODTAP: 2, TOGGLE: 3, DKS: 4 }, ADV_MAX = 16;
-const ADV_NAMES = { 1: "SnapKey (SOCD)", 2: "Mod-tap", 3: "Toggle", 4: "Dynamic keystroke (DKS)" };
+const ADV = { NONE: 0, SOCD: 1, MODTAP: 2, TOGGLE: 3, DKS: 4, MACRO: 5 }, ADV_MAX = 16;
+const ADV_NAMES = { 1: "SnapKey (SOCD)", 2: "Mod-tap", 3: "Toggle", 4: "Dynamic keystroke (DKS)", 5: "Macro" };
+/* macros (protocol v9, fw v0.16): 8 x 32 steps of (code, arg); code 0 = wait arg x 10 ms, arg 0 = end;
+ * else arg 1 down, 2 up, 3 tap */
+const MACROS = 8, MACRO_STEPS = 32;
+const newMacros = () => Array.from({ length: MACROS }, () => []);
+const copyMacros = m => m.map(l => l.map(x => ({ ...x })));
+/* browser key -> HID usage, for recording: the board's own keys plus what a full keyboard adds */
+const EXTRA_HID = { F1: 0x3A, F2: 0x3B, F3: 0x3C, F4: 0x3D, F5: 0x3E, F6: 0x3F, F7: 0x40, F8: 0x41, F9: 0x42, F10: 0x43, F11: 0x44, F12: 0x45,
+  ArrowUp: 0x52, ArrowDown: 0x51, ArrowLeft: 0x50, ArrowRight: 0x4F, Delete: 0x4C, Insert: 0x49, Home: 0x4A, End: 0x4D,
+  PageUp: 0x4B, PageDown: 0x4E, PrintScreen: 0x46, MetaRight: 0xE7 };
+const hidOf = code => { const s = SITE_BY_CODE.get(code), c = s === undefined ? EXTRA_HID[code] : BASE_DEFAULT[s]; return c > 1 ? c : 0; };
 const newAdvEntry = () => ({ type: 0, a: 0, b: 0, p0: 0, code: [0, 0, 0, 0], act: [0, 0, 0, 0] });
 const newAdv = () => Array.from({ length: ADV_MAX }, newAdvEntry);
 const copyAdv = l => l.map(e => ({ ...e, code: e.code.slice(), act: e.act.slice() }));
@@ -334,11 +344,11 @@ const LED_BUDGET_MA = 300;
  * bytes 0..7 sum to 0xFF; opcode in byte 0, arguments in 1..6, payload from byte 8. The reply
  * comes back through GET_FEATURE with the opcode echoed in byte 0. */
 const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, SET_RADIO: 0xFA,
-  GET_KEYCFG: 0xFB, SET_KEYCFG: 0xFC, GET_TRAVEL: 0xFD, TRAVEL: 0xFE, GET_ADV: 0xE1, SET_ADV: 0xE2, GET_LEDMAP: 0xE3, SET_LEDMAP: 0xE4, ISP_PREPARE: 0xC5, BOOT: 0x7F };
+  GET_KEYCFG: 0xFB, SET_KEYCFG: 0xFC, GET_TRAVEL: 0xFD, TRAVEL: 0xFE, GET_ADV: 0xE1, SET_ADV: 0xE2, GET_LEDMAP: 0xE3, SET_LEDMAP: 0xE4, GET_MACRO: 0xE5, SET_MACRO: 0xE6, ISP_PREPARE: 0xC5, BOOT: 0x7F };
 const MAP_PAGE = 56;
 /* reply bytes 1.. that echo the request's arguments (page, layer, field), so a reply meant for
  * another tab or program using the keyboard at the same time is never taken for ours */
-const ECHO = { [OP.RAW]: 1, [OP.GET_MAP]: 2, [OP.SET_MAP]: 2, [OP.GET_KEYCFG]: 2, [OP.SET_KEYCFG]: 2, [OP.GET_TRAVEL]: 1, [OP.GET_ADV]: 1, [OP.SET_ADV]: 1, [OP.GET_LEDMAP]: 1, [OP.SET_LEDMAP]: 1 };
+const ECHO = { [OP.RAW]: 1, [OP.GET_MAP]: 2, [OP.SET_MAP]: 2, [OP.GET_KEYCFG]: 2, [OP.SET_KEYCFG]: 2, [OP.GET_TRAVEL]: 1, [OP.GET_ADV]: 1, [OP.SET_ADV]: 1, [OP.GET_LEDMAP]: 1, [OP.SET_LEDMAP]: 1, [OP.GET_MACRO]: 2, [OP.SET_MACRO]: 2 };
 
 class HidKeyboard {
   constructor(dev) { this.dev = dev; this.queue = Promise.resolve(); this.demo = false; }
@@ -419,6 +429,24 @@ class HidKeyboard {
     }
     return m;
   }
+  async macros() {
+    const out = [];
+    for (let m = 0; m < MACROS; m++) {
+      const steps = [];
+      for (let p = 0; p * 16 < MACRO_STEPS; p++) {
+        const u = await this.request(OP.GET_MACRO, [m, p]);
+        for (let i = 0; i < u[3]; i++) steps.push({ code: u[8 + 2 * i], arg: u[9 + 2 * i] });
+      }
+      const end = steps.findIndex(x => !x.code && !x.arg);
+      out.push(end < 0 ? steps : steps.slice(0, end));
+    }
+    return out;
+  }
+  async setMacro(m, steps) {
+    const all = [...steps, ...Array(MACRO_STEPS).fill({ code: 0, arg: 0 })].slice(0, MACRO_STEPS);
+    for (let p = 0; p * 16 < MACRO_STEPS; p++)
+      await this.request(OP.SET_MACRO, [m, p, 16], all.slice(p * 16, p * 16 + 16).flatMap(x => [x.code, x.arg]));
+  }
   async setLedmap(m) {
     for (let p = 0; p * 18 < m.length; p++) {
       const page = m.slice(p * 18, p * 18 + 18);
@@ -489,14 +517,14 @@ class HidKeyboard {
 class DemoKeyboard {
   constructor() {
     this.demo = true; this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()];
-    this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); this.advs = newAdv(); this.leds = newLedmap(); this.saved = null; this.down = new Set(); this.depth = new Float32Array(SITES);
+    this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); this.advs = newAdv(); this.leds = newLedmap(); this.mac = newMacros(); this.saved = null; this.down = new Set(); this.depth = new Float32Array(SITES);
     addEventListener("keydown", e => { const s = SITE_BY_CODE.get(e.code); if (s !== undefined) this.down.add(s); });
     addEventListener("keyup", e => { const s = SITE_BY_CODE.get(e.code); if (s !== undefined) this.down.delete(s); });
     addEventListener("blur", () => this.down.clear());
     this.save();
   }
   name() { return "FUN60 Ultra TMR (demo)"; }
-  async info() { return { devId: 2307, proto: 8, version: "0.15" }; }
+  async info() { return { devId: 2307, proto: 9, version: "0.16" }; }
   async radio() { return { mode: this.mode ?? 6, state: this.mode === 6 || this.mode === undefined ? 0 : 3, seen: true }; }
   async setRadio(mode) { this.mode = mode; }
   async power() { return { percent: 87, usb: true, charging: false, raw: 1560 }; }
@@ -515,10 +543,12 @@ class DemoKeyboard {
   async config() { return { ...this.cfg }; }
   async setConfig(c) { this.cfg = { ...c }; }
   async save() { this.saved = { map: [this.map[0].slice(), this.map[1].slice()], cfg: { ...this.cfg }, kc: copyKc(this.kc) }; }
-  async defaults() { this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); this.advs = newAdv(); this.leds = newLedmap(); }
+  async defaults() { this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); this.advs = newAdv(); this.leds = newLedmap(); this.mac = newMacros(); }
   async keycfg() { return copyKc(this.kc); }
   async adv() { return copyAdv(this.advs); }
   async ledmap() { return copyLedmap(this.leds); }
+  async macros() { return copyMacros(this.mac); }
+  async setMacro(m, steps) { this.mac[m] = steps.map(x => ({ ...x })); }
   async setLedmap(m) { this.leds = copyLedmap(m); }
   async setAdv(l) { this.advs = copyAdv(l); }
   async setKeycfg(k) { this.kc = copyKc(k); }
@@ -536,6 +566,7 @@ const st = {
   page: "device", kb: null, info: null, layer: 0, cat: "Letters", query: "",
   map: [BASE_DEFAULT.slice(), FN_DEFAULT.slice()], cfg: { ...CONFIG_DEFAULT },
   kc: newKc(), savedKc: null, fw: null, adv: newAdv(), savedAdv: null, ledmap: newLedmap(), savedLedmap: null, paint: "#ff4d4d",
+  macros: newMacros(), savedMacros: null, macro: 0, rec: null,
   savedMap: null, savedCfg: null, sel: new Set(), pressed: new Set(), raw: null,
   tester: { presses: 0, doubles: 0, up: new Map(), down: new Map(), log: [] },
   tested: new Set(), pressSelect: false, focus: KEYS.find(k => k.code === "KeyW").site, trace: [],
@@ -573,10 +604,11 @@ const theme = () => document.documentElement.dataset.theme || "auto";
 try { const t = localStorage.getItem(THEME_KEY); if (t) setTheme(t); } catch (e) { /* default */ }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const isDirty = () => st.savedMap && (!eqMap(st.map, st.savedMap) || JSON.stringify(st.cfg) !== JSON.stringify(st.savedCfg) || !eqKc(st.kc, st.savedKc) || !eqAdv(st.adv, st.savedAdv) || JSON.stringify(st.ledmap) !== JSON.stringify(st.savedLedmap));
+const isDirty = () => st.savedMap && (!eqMap(st.map, st.savedMap) || JSON.stringify(st.cfg) !== JSON.stringify(st.savedCfg) || !eqKc(st.kc, st.savedKc) || !eqAdv(st.adv, st.savedAdv) || JSON.stringify(st.ledmap) !== JSON.stringify(st.savedLedmap) || JSON.stringify(st.macros) !== JSON.stringify(st.savedMacros));
 const perKey = () => st.info && st.info.proto >= 6;
 const hasAdv = () => st.info && st.info.proto >= 7;
 const hasFx = () => st.info && st.info.proto >= 8;
+const hasMacros = () => st.info && st.info.proto >= 9;
 const eqMap = (a, b) => a.every((l, i) => l.every((c, j) => c === b[i][j]));
 const MODES = { 0: "Bluetooth 1", 1: "Bluetooth 2", 2: "Bluetooth 3", 5: "2.4G", 6: "USB" };
 const radioText = () => {
@@ -606,10 +638,11 @@ async function attach(kb) {
     st.kc = perKey() ? await kb.keycfg() : newKc(); st.fw = null;
     st.adv = hasAdv() ? await kb.adv() : newAdv();
     st.ledmap = hasFx() ? await kb.ledmap() : newLedmap();
+    st.macros = hasMacros() ? await kb.macros() : newMacros();
   } catch (e) {
-    st.error = e.message; st.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; st.cfg = { ...CONFIG_DEFAULT }; st.kc = newKc(); st.adv = newAdv(); st.ledmap = newLedmap();
+    st.error = e.message; st.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; st.cfg = { ...CONFIG_DEFAULT }; st.kc = newKc(); st.adv = newAdv(); st.ledmap = newLedmap(); st.macros = newMacros();
   }
-  st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc); st.savedAdv = copyAdv(st.adv); st.savedLedmap = copyLedmap(st.ledmap);
+  st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc); st.savedAdv = copyAdv(st.adv); st.savedLedmap = copyLedmap(st.ledmap); st.savedMacros = copyMacros(st.macros);
   render();
 }
 
@@ -628,6 +661,7 @@ async function push(what) {           /* live preview: lighting and performance 
     else if (what === "kc") { if (perKey()) await st.kb.setKeycfg(st.kc); }
     else if (what === "adv") { if (hasAdv()) await st.kb.setAdv(st.adv); }
     else if (what === "led") { if (hasFx()) await st.kb.setLedmap(st.ledmap); }
+    else if (what === "macro") { if (hasMacros()) await st.kb.setMacro(st.macro, st.macros[st.macro]); }
     else await st.kb.setKeymap(st.map);
     st.error = "";
   }
@@ -809,7 +843,7 @@ async function flashFirmware() {
     /* 1. a running open firmware: keep its settings (flashing erases them), then into the bootloader */
     if (st.kb && !st.kb.demo) {
       if (st.info.devId !== 2307) throw new Error(`This is board ${st.info.devId}, not a FUN60 Ultra TMR (2307). Not flashing it.`);
-      f.backup = { map: [st.map[0].slice(), st.map[1].slice()], cfg: { ...st.cfg }, kc: copyKc(st.kc), adv: copyAdv(st.adv), ledmap: copyLedmap(st.ledmap) };
+      f.backup = { map: [st.map[0].slice(), st.map[1].slice()], cfg: { ...st.cfg }, kc: copyKc(st.kc), adv: copyAdv(st.adv), ledmap: copyLedmap(st.ledmap), macros: copyMacros(st.macros) };
       flashSet({ phase: "boot", msg: "Restarting the keyboard into its bootloader..." });
       await st.kb.request(OP.ISP_PREPARE, [0x3A]);
       await sleep(100);
@@ -870,6 +904,7 @@ async function restoreBackup() {
     if (b.kc) st.kc = copyKc(b.kc);
     if (b.adv) st.adv = copyAdv(b.adv);
     if (b.ledmap) st.ledmap = copyLedmap(b.ledmap);
+    if (b.macros) st.macros = copyMacros(b.macros);
     await save();
     flashSet({ restored: true, msg: st.error ? st.error : "Your keymap and settings are back and saved on the keyboard." });
   } catch (e) { flashSet({ msg: e.message }); }
@@ -901,6 +936,45 @@ async function loadVersions() {
 /* ---------- pages ---------- */
 const WIRELESS = [[0, "BT 1", "Fn + E"], [1, "BT 2", "Fn + R"], [2, "BT 3", "Fn + T"], [5, "2.4G", "Fn + Y"], [6, "USB", "Fn + U"]];
 const pctMark = (pct, c, label) => `<div class="mark" style="top:${pct}%;--c:${c}"><span>${label}</span></div>`;
+
+function macroCard() {
+  const m = st.macros[st.macro], rec = st.rec;
+  const ACT = ["Wait", "Down", "Up", "Tap"];
+  const codeOpts = sel => CATS.filter(c => !["Lighting", "Connection", "Special"].includes(c)).map(c =>
+    `<optgroup label="${c}">${KC.filter(k => k.cat === c).map(k => `<option value="${k.code}" ${k.code === sel ? "selected" : ""}>${esc(k.name)}</option>`).join("")}</optgroup>`).join("");
+  return `<div class="card wide">
+    <div class="row" style="justify-content:space-between"><div><div class="eyebrow">${m.length} of ${MACRO_STEPS} steps</div><h2>Macros</h2></div>
+      <div class="seg" role="group" aria-label="Macro">${Array.from({ length: MACROS }, (_, i) => `<button data-macro="${i}" aria-pressed="${st.macro === i}">${i + 1}</button>`).join("")}</div></div>
+    <p>A macro plays when its key is pressed (add a Macro entry above to give it a key). Every key step takes 20 ms so each one reaches the computer; anything left down comes up at the end.</p>
+    <div class="advs">${m.map((x, i) => `<div class="row">
+      <span class="mono note">${String(i + 1).padStart(2, "0")}</span>
+      <select class="inp" data-step="${i}" data-f="kind">${ACT.map((t, v) => `<option value="${v}" ${(x.code ? x.arg : 0) === v ? "selected" : ""}>${t}</option>`).join("")}</select>
+      ${x.code ? `<select class="inp" data-step="${i}" data-f="code">${codeOpts(x.code)}</select>`
+        : `<label class="row"><input class="inp" type="number" min="10" max="2550" step="10" value="${x.arg * 10}" data-step="${i}" data-f="ms" style="width:90px"> ms</label>`}
+      <button class="btn" data-step-del="${i}" aria-label="Remove step ${i + 1}">Remove</button></div>`).join("") || '<p class="muted">Empty.</p>'}</div>
+    <div class="row">
+      <button class="btn ${rec ? "danger" : "primary"}" id="mac-rec">${rec ? "Stop recording" : "Record"}</button>
+      <button class="btn" id="mac-add" ${m.length < MACRO_STEPS ? "" : "disabled"}>Add a step</button>
+      <button class="btn" id="mac-clear" ${m.length ? "" : "disabled"}>Clear</button>
+    </div>
+    <p class="note">${rec ? "Recording: type on any keyboard. Pauses over 20 ms become waits." : "Record captures the keys you type here (Fn can't be recorded), with the pauses between them."}</p>
+  </div>`;
+}
+
+/* recording: browser key events become down / up steps with the waits between them */
+addEventListener("keydown", e => macroRec(e, 1), true);
+addEventListener("keyup", e => macroRec(e, 2), true);
+function macroRec(e, arg) {
+  const r = st.rec; if (!r || e.repeat) return;
+  e.preventDefault(); e.stopPropagation();
+  const code = hidOf(e.code), m = st.macros[st.macro]; if (!code) return;
+  const now = performance.now(), wait = Math.min(255, Math.round((now - r.at) / 10));
+  if (r.at && wait >= 2 && m.length < MACRO_STEPS) m.push({ code: 0, arg: wait });
+  if (m.length < MACRO_STEPS) m.push({ code, arg });
+  r.at = now;
+  if (m.length >= MACRO_STEPS) st.rec = null;
+  push("macro"); renderTop(); if (st.page === "advanced") renderPanel();
+}
 
 const PAGES = {
   device() {
@@ -1055,6 +1129,9 @@ const PAGES = {
     const POINTS = ["Press", "Bottom", "Off bottom", "Release"], ACTS = ["-", "Down", "Up", "Tap"];
     const used = st.adv.filter(e => e.type).length;
     const body = (e, j) => {
+      if (e.type === ADV.MACRO) return `<div class="row">${pick(j, "a", keyOpts(e.a), "Key")}
+        ${pick(j, "p0", Array.from({ length: MACROS }, (_, m) => `<option value="${m}" ${e.p0 === m ? "selected" : ""}>Macro ${m + 1}${st.macros[m].length ? "" : " (empty)"}</option>`).join(""), "Plays")}
+        ${pick(j, "b", ["Once per press", "Again while held"].map((t, i) => `<option value="${i}" ${e.b === i ? "selected" : ""}>${t}</option>`).join(""), "")}</div>`;
       if (e.type === ADV.SOCD) return `<div class="row">${pick(j, "a", keyOpts(e.a), "Key")}${pick(j, "b", keyOpts(e.b), "and")}
         ${pick(j, "p0", ["Last pressed wins", "First key wins", "Second key wins", "Neither"].map((t, i) => `<option value="${i}" ${e.p0 === i ? "selected" : ""}>${t}</option>`).join(""), "When both are down")}</div>
         <p class="note">Both keys keep their own codes; letting go of the one that counts brings the other back. Typical: A and D for strafing.</p>`;
@@ -1073,10 +1150,11 @@ const PAGES = {
     return `<div class="cols">
       <div class="card wide">
         <div class="row" style="justify-content:space-between"><div><div class="eyebrow">${used} of ${ADV_MAX} used</div><h2>Advanced keys</h2></div>
-          <div class="row">${[ADV.SOCD, ADV.MODTAP, ADV.TOGGLE, ADV.DKS].map(t => `<button class="btn" data-add="${t}" ${used < ADV_MAX ? "" : "disabled"}>+ ${ADV_NAMES[t].replace(/ \(.*/, "")}</button>`).join("")}</div></div>
-        <p>A mod-tap, toggle or DKS key belongs to that entry: its normal mapping (both layers) is ignored while the entry exists. Changes apply at once; Save to keyboard keeps them.</p>
+          <div class="row">${[ADV.SOCD, ADV.MODTAP, ADV.TOGGLE, ADV.DKS, ...(hasMacros() ? [ADV.MACRO] : [])].map(t => `<button class="btn" data-add="${t}" ${used < ADV_MAX ? "" : "disabled"}>+ ${ADV_NAMES[t].replace(/ \(.*/, "")}</button>`).join("")}</div></div>
+        <p>A mod-tap, toggle, DKS or macro key belongs to that entry: its normal mapping (both layers) is ignored while the entry exists. Changes apply at once; Save to keyboard keeps them.</p>
         <div class="advs">${st.adv.map((e, j) => e.type ? `<div class="adv"><div class="row" style="justify-content:space-between"><b>${ADV_NAMES[e.type]}</b><button class="btn danger" data-del="${j}">Remove</button></div>${body(e, j)}</div>` : "").join("") || '<p class="muted">None yet.</p>'}</div>
       </div>
+      ${hasMacros() ? macroCard() : ""}
     </div>`;
   },
 
@@ -1187,7 +1265,7 @@ const PAGES = {
         <div class="row"><button class="btn danger" id="fl-go" ${f.image && f.agree && !busy && "hid" in navigator ? "" : "disabled"}>Flash ${f.image ? esc(f.name) : ""}</button></div>
         ${f.msg ? `<p style="color:${f.phase === "error" ? "var(--bad)" : f.phase === "done" ? "var(--live)" : "var(--text)"}">${esc(f.msg)}</p>` : ""}
         ${flow}
-        ${f.phase === "done" && f.backup && !f.restored ? `<div class="row"><button class="btn primary" id="fl-restore">Put my settings back</button><span class="note">keymap, lighting and key colours, actuation, rapid trigger, advanced keys and hold-off from before the flash</span></div>` : ""}
+        ${f.phase === "done" && f.backup && !f.restored ? `<div class="row"><button class="btn primary" id="fl-restore">Put my settings back</button><span class="note">keymap, lighting and key colours, actuation, rapid trigger, advanced keys, macros and hold-off from before the flash</span></div>` : ""}
       </div>
       <div class="card">
         <div class="eyebrow">Manual</div>
@@ -1299,10 +1377,23 @@ const BIND = {
       const t = +b.dataset.add, k = s => SITE_BY_CODE.get(s);
       st.adv[j] = { ...newAdvEntry(), type: t,
         ...(t === ADV.SOCD ? { a: k("KeyA"), b: k("KeyD") } : t === ADV.MODTAP ? { a: k("CapsLock"), p0: 20, code: [0x29, 0xE0, 0, 0] }
-          : t === ADV.TOGGLE ? { a: k("KeyW"), code: [0x1A, 0, 0, 0] } : { a: k("KeyE"), p0: 90, code: [0x08, 0, 0, 0], act: [0x01 | 0x2 << 6, 0, 0, 0] }) };
+          : t === ADV.TOGGLE ? { a: k("KeyW"), code: [0x1A, 0, 0, 0] } : t === ADV.MACRO ? { a: k("ContextMenu"), p0: st.macro, b: 0 } : { a: k("KeyE"), p0: 90, code: [0x08, 0, 0, 0], act: [0x01 | 0x2 << 6, 0, 0, 0] }) };
       changed(); renderPanel();
     });
     p.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { st.adv[+b.dataset.del] = newAdvEntry(); changed(); renderPanel(); });
+    p.querySelectorAll("[data-macro]").forEach(b => b.onclick = () => { st.macro = +b.dataset.macro; st.rec = null; renderPanel(); });
+    const mchanged = () => { push("macro"); renderTop(); renderPanel(); }, steps = () => st.macros[st.macro];
+    p.querySelector("#mac-rec")?.addEventListener("click", e => { st.rec = st.rec ? null : { at: 0 }; e.currentTarget.blur(); renderPanel(); });
+    p.querySelector("#mac-add")?.addEventListener("click", () => { steps().push({ code: 0x04, arg: 3 }); mchanged(); });
+    p.querySelector("#mac-clear")?.addEventListener("click", () => { st.macros[st.macro] = []; mchanged(); });
+    p.querySelectorAll("[data-step-del]").forEach(b => b.onclick = () => { steps().splice(+b.dataset.stepDel, 1); mchanged(); });
+    p.querySelectorAll("[data-step]").forEach(el => el.onchange = () => {
+      const x = steps()[+el.dataset.step], f = el.dataset.f, v = +el.value;
+      if (f === "kind") { if (v === 0) { x.code = 0; x.arg = 10; } else { x.code = x.code || 0x04; x.arg = v; } }
+      else if (f === "code") x.code = v;
+      else x.arg = Math.max(1, Math.min(255, Math.round(v / 10)));
+      mchanged();
+    });
     p.querySelectorAll("select[data-j]").forEach(el => el.onchange = () => {
       const e = st.adv[+el.dataset.j], f = el.dataset.f, v = +el.value;
       if (f === "a" || f === "b" || f === "p0") e[f] = v;
@@ -1345,12 +1436,12 @@ const BIND = {
     p.querySelector("#save2").onclick = save;
     const nk = p.querySelector("#nkro"); if (nk) nk.onchange = () => { st.cfg.nkro = nk.checked ? 1 : 0; push("cfg"); renderPanel(); };
     p.querySelector("#defaults").onclick = async () => {
-      await st.kb.defaults(); st.map = await st.kb.keymap(); st.cfg = await st.kb.config(); if (perKey()) st.kc = await st.kb.keycfg(); if (hasAdv()) st.adv = await st.kb.adv(); if (hasFx()) st.ledmap = await st.kb.ledmap(); render();
+      await st.kb.defaults(); st.map = await st.kb.keymap(); st.cfg = await st.kb.config(); if (perKey()) st.kc = await st.kb.keycfg(); if (hasAdv()) st.adv = await st.kb.adv(); if (hasFx()) st.ledmap = await st.kb.ledmap(); if (hasMacros()) st.macros = await st.kb.macros(); render();
     };
     p.querySelector("#export").onclick = () => {
       const named = l => Object.fromEntries(KEYS.map(k => [k.code, kcShort(st.map[l][k.site])]));
       st.exportText = JSON.stringify({ format: "fun60-studio/1", base: [...st.map[0]], fn: [...st.map[1]], config: st.cfg,
-        perKey: Object.fromEntries(KC_FIELDS.map(f => [f, [...st.kc[f]]])), advanced: st.adv.filter(e => e.type), keyColours: st.ledmap, readable: { base: named(0), fn: named(1) } }, null, 1);
+        perKey: Object.fromEntries(KC_FIELDS.map(f => [f, [...st.kc[f]]])), advanced: st.adv.filter(e => e.type), keyColours: st.ledmap, macros: st.macros, readable: { base: named(0), fn: named(1) } }, null, 1);
       renderPanel();
     };
     p.querySelector("#download").onclick = () => {
@@ -1368,8 +1459,9 @@ const BIND = {
         if (d.perKey) KC_FIELDS.forEach(f => { if (d.perKey[f] && d.perKey[f].length === SITES) st.kc[f] = Uint8Array.from(d.perKey[f]); });
         if (Array.isArray(d.advanced)) st.adv = copyAdv([...d.advanced.slice(0, ADV_MAX).map(e => ({ ...newAdvEntry(), ...e })), ...newAdv()].slice(0, ADV_MAX));
         if (Array.isArray(d.keyColours) && d.keyColours.length === LED_SITES.length) st.ledmap = copyLedmap(d.keyColours);
+        if (Array.isArray(d.macros) && d.macros.length === MACROS) st.macros = copyMacros(d.macros.map(l => l.slice(0, MACRO_STEPS)));
         st.exportText = $("backup").value; st.error = "";
-        push("map").then(() => push("cfg")).then(() => push("kc")).then(() => push("adv")).then(() => push("led")); render();
+        push("map").then(() => push("cfg")).then(() => push("kc")).then(() => push("adv")).then(() => push("led")).then(async () => { if (hasMacros()) for (let m = 0; m < MACROS; m++) await st.kb.setMacro(m, st.macros[m]); }); render();
       } catch (e) { st.error = e.message; render(); }
     };
     p.querySelectorAll("[data-theme-pick]").forEach(b => b.onclick = () => { setTheme(b.dataset.themePick); renderPanel(); });
@@ -1381,13 +1473,15 @@ async function save() {
     await st.kb.setKeymap(st.map); await st.kb.setConfig(st.cfg); if (perKey()) await st.kb.setKeycfg(st.kc);
     if (hasAdv()) await st.kb.setAdv(st.adv);
     if (hasFx()) await st.kb.setLedmap(st.ledmap);
+    if (hasMacros()) for (let m = 0; m < MACROS; m++) await st.kb.setMacro(m, st.macros[m]);
     await st.kb.save();
-    st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc); st.savedAdv = copyAdv(st.adv); st.savedLedmap = copyLedmap(st.ledmap); st.error = "";
+    st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc); st.savedAdv = copyAdv(st.adv); st.savedLedmap = copyLedmap(st.ledmap); st.savedMacros = copyMacros(st.macros); st.error = "";
   } catch (e) { st.error = e.message; }
   render();
 }
 async function revert() {
-  st.map = [st.savedMap[0].slice(), st.savedMap[1].slice()]; st.cfg = { ...st.savedCfg }; st.kc = copyKc(st.savedKc); st.adv = copyAdv(st.savedAdv); st.ledmap = copyLedmap(st.savedLedmap);
+  st.map = [st.savedMap[0].slice(), st.savedMap[1].slice()]; st.cfg = { ...st.savedCfg }; st.kc = copyKc(st.savedKc); st.adv = copyAdv(st.savedAdv); st.ledmap = copyLedmap(st.savedLedmap); st.macros = copyMacros(st.savedMacros);
+  if (hasMacros()) for (let m = 0; m < MACROS; m++) await st.kb.setMacro(m, st.macros[m]);
   await push("map"); await push("cfg"); await push("kc"); await push("adv"); await push("led"); render();
 }
 
