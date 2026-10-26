@@ -29,18 +29,43 @@ Two things started this:
 It turned into a full replacement firmware. It's still a work in progress, so read the
 [status list](#2-status) before you flash anything.
 
-Written 2026-09-30, updated 2026-10-26 for firmware v0.12. Stock firmware analysed: v306 for board 2307.
+Written 2026-09-30, updated 2026-10-26 for firmware v0.17. Stock firmware analysed: v306 for board 2307.
 
-> **v0.12 is extremely experimental.** It was written without the keyboard plugged in and has
-> never run on one: not with magnetic switches, not even with mechanical ones. It could type
-> wrong, miss keys or not type at all. If you just want a working keyboard, flash **v0.11**
-> instead (`git checkout v0.11`, then build as below): mechanical switches only, tested, typing
-> every day on my board. If v0.12 misbehaves, recovery is the same as always ([section 4](#4-the-brick)),
-> but holding Esc while plugging in may not work with a magnetic Esc; the watchdog failsafe does.
+> **v0.17 is experimental.** It ran on my board all night and every feature was checked on the
+> real USB link, but by test tools pressing keys from the PC, not by fingers on keys. The magnetic
+> part is built on real readings from two magnetic switches (Space and Fn), not a full magnetic
+> board. If you just want a working keyboard, flash **v0.11** (`git checkout v0.11`, then build as
+> below): mechanical switches only, typing every day on my board for a month. If v0.17 misbehaves,
+> recovery is the same as always ([section 4](#4-the-brick)), but holding Esc while plugging in
+> may not work with a magnetic Esc; the watchdog failsafe does.
 
 ## -2. Changelog
 
 Newest first. Small wording fixes are not listed.
+
+**2026-10-26 (night)**
+
+* Firmware v0.13 to v0.17, **experimental**, each one flashed and checked on my board:
+  * v0.13: per-key actuation point, rapid trigger (press and release sensitivity, optional
+    continuous mode), top and bottom dead zones, and calibration that survives a power cycle
+    (each key's travel is saved, its rest position is still learned at power-on).
+  * v0.14: NKRO over USB (every key at once, on a second keyboard report, so a BIOS still gets
+    the 6-key one), and advanced keys: SnapKey / SOCD, mod-tap, toggle and dynamic keystroke (DKS).
+  * v0.15: four new lighting effects (Spectrum, Reactive, Ripple, Custom per-key colours) and an
+    effect speed.
+  * v0.16: macros, 8 of up to 32 steps, played from a key once or again while held.
+  * v0.17: 4 profiles, switched from the driver or from Profile 1-4 keys you can put anywhere.
+  * Settings reset to defaults once with each of these versions.
+* First real measurements of magnetic switches on this board: a magnetic Space rests at 1806 and
+  bottoms out at 1211, a magnetic Fn 1290 and 797, noise about 3 counts. The reading falls on
+  press, as stock's maths assumes, so the v0.12 model holds. The capture is in [`fw/test/`](fw/test/), and the
+  host tests replay it through the real key code.
+* FUN60 Studio: Advanced page (SnapKey, mod-tap, toggle, DKS, macros with a recorder), per-key
+  actuation and rapid trigger on the Travel page, calibration (store, clear, relearn), new
+  lighting effects and per-key colour painting, NKRO and profiles on the Settings page. It no
+  longer mixes up replies when two tabs are open at once.
+* The browser flasher has now flashed a real keyboard: v0.11 and v0.12 from Brave, 2 s for the
+  bootloader, under 2 s to write, settings put back after.
 
 **2026-10-26**
 
@@ -78,8 +103,8 @@ need to open the case. Everything below uses nix-shell; any Linux with the same 
 
 The command line below is the recommended way. There's also an **experimental** flasher in the
 web driver (https://driver.vivlos.dev, Firmware page) with a version list marked stable or
-experimental. It sends the same bytes as ry-flash, checked frame by frame, but it hasn't flashed a
-real keyboard yet. Its Download links give the same files for ry-flash.
+experimental. It sends the same bytes as ry-flash, checked frame by frame, and it has flashed my
+keyboard a few times now. Its Download links give the same files for ry-flash.
 
 **0.1 Build.**
 
@@ -170,7 +195,7 @@ Working, tested on my board:
 - USB typing with the stock layout, plus the Fn layer (F keys, media, arrows)
 - **no more double typing**: 0 doubles in 121 hard taps, where stock did 13 to 165 per run
   ([numbers below](#3-the-double-typing))
-- per-key RGB: static, breathe, rainbow, brightness, on/off
+- per-key RGB: static, breathe, rainbow, brightness, on/off (v0.11; the v0.15 effects below)
 - **2.4G wireless** through the stock dongle (Fn + Y). A dongle paired under stock just works.
 - stock's indicator lights: the mode key blinks or stays lit, battery level on Esc
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
@@ -180,13 +205,26 @@ Working, tested on my board:
   lighting, a press test and a double-press tester, save and restore
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
+Running on my board, checked through the real USB reports, but not typed on by hand yet (v0.13
+to v0.17):
+
+- magnetic switches: each key learns its rest and bottom like stock (bottom starts 400 counts
+  under rest) and presses at a percent of that travel. Real readings from a magnetic Space and Fn
+  fit this, and a recording of them pressed and released replays correctly through the key code.
+- per-key actuation, rapid trigger, dead zones, saved calibration
+- NKRO over USB
+- SnapKey / SOCD, mod-tap, toggle, dynamic keystroke (DKS), macros
+- lighting: spectrum, reactive, ripple, custom per-key colours, effect speed
+- 4 profiles
+- the browser flasher (it flashed v0.11 and v0.12 from Brave)
+
 Built, not tested yet:
 
-- magnetic switches (v0.12): each key learns its rest and bottom like stock (bottom starts
-  400 counts under rest), presses at a percent of that travel. Holding Esc while plugging in
-  still uses mechanical thresholds, so with a magnetic Esc it may not reach the bootloader; the
-  watchdog failsafe still does.
+- Holding Esc while plugging in still uses mechanical thresholds, so with a magnetic Esc it may
+  not reach the bootloader; the watchdog failsafe still does.
 - Bluetooth 1 to 3 (Fn + E, R, T; hold 3 s to pair, it shows up as "FUN60 Ultra-1/2/3")
+- Reactive and ripple lighting were checked in the host tests and for stability on the board, but
+  I haven't looked at the LEDs while they run.
 
 Not done:
 
@@ -194,9 +232,9 @@ Not done:
   Don't leave it on battery for days.
 - the web driver over 2.4G (USB cable only for now)
 - Mac mode: the switch's top position is read but ignored
-- NKRO: 6 keys at once, like a boot keyboard
-- magnetic switch extras: rapid trigger, a different actuation per key, calibration that
-  survives a power cycle, stock's travel-to-millimetre curve (actuation is a percent, not mm)
+- NKRO over 2.4G and Bluetooth (wireless sends 6 keys at once)
+- stock's travel-to-millimetre curve: actuation and rapid trigger are percents of each key's
+  travel, not millimetres
 - the MonsGeek app will not work with this firmware, and that's not planned
 
 ## 3. The double typing
@@ -401,6 +439,26 @@ The layout is stock's. Fn layer:
 With the cable in, the keyboard starts in USB mode. Unplug it (with the Caps Lock switch at the
 top or bottom) and it carries on in the last wireless mode.
 
+From v0.13 on, more of it is set in the web driver and saved on the keyboard:
+
+- **Per key:** an actuation point, and rapid trigger. After its first press, a rapid-trigger key
+  releases as soon as it comes up by the release amount and presses again when it goes down by
+  the press amount, without the 8 ms release hold-off. All in percent of that key's own travel.
+- **Dead zones:** travel near the top reads 0 %, near the bottom 100 %.
+- **Calibration:** press every magnetic key all the way down once, then store it. The travel is
+  saved; rest is still learned at power-on, so a key held down while plugging in reads 0 % until
+  it is let go, and never types on its own.
+- **NKRO** over USB, on a second keyboard report (interface 2, report ID 2). A BIOS asks for the
+  boot protocol and gets the plain 6-key report. Off in Settings if something doesn't like it.
+- **Advanced keys** (16): SnapKey / SOCD on two keys (last pressed wins, either one wins, or
+  neither), mod-tap (tap for one key, hold for another), toggle (a tap latches it down), dynamic
+  keystroke (up to 4 keys, each doing something at press, bottom, off the bottom and release),
+  and macro keys.
+- **Macros** (8, up to 32 steps each): key down, key up, tap, wait. Every key step takes 20 ms so
+  each one reaches the PC as its own report; whatever a macro leaves down comes up at its end.
+- **Profiles** (4): keymap, lighting, actuation, advanced keys and macros each. Calibration and the
+  wireless mode are shared. Profile 1-4 keys can go anywhere in the keymap.
+
 ## 10. Web driver
 
 FUN60 Studio, in [`driver/`](driver/). It's hosted at **https://driver.vivlos.dev**, or run it locally:
@@ -411,9 +469,12 @@ nix-shell -p python3 --run driver/serve.sh     # then open http://127.0.0.1:8060
 
 Pages: Device (battery, switching between USB, Bluetooth 1 to 3 and 2.4G, pairing), Keys
 (base and Fn layers; click, Shift-click, drag a box or press keys on the keyboard to select;
-swap, presets), Travel (actuation, live depth of every key, a travel graph for one key),
-Lighting, Test (press every key once, double-press tester), Firmware (version list, downloads, an
-experimental browser flasher) and Settings (save, backup, theme). Without a keyboard it runs a demo that your own keyboard drives.
+swap, presets), Travel (actuation, dead zones, per-key actuation and rapid trigger, calibration,
+live depth of every key, a travel graph for one key), Advanced (SnapKey, mod-tap, toggle, DKS,
+macros with a recorder), Lighting (effects, speed, colour, per-key colours), Test (press every key
+once, double-press tester), Firmware (version list, downloads, a browser flasher) and Settings
+(save, profiles, NKRO, backup, theme). Pages for features a firmware doesn't have say which
+version they need. Without a keyboard it runs a demo that your own keyboard drives.
 
 It needs a Chromium-based browser (Chrome, Chromium, Brave) for WebHID, plus access to the
 keyboard's hidraw node. A udev rule does that:
@@ -636,6 +697,8 @@ Things that were believed, written down or acted on, and turned out wrong.
 ### 13.2 Open questions
 
 - Bluetooth: built, never tested.
+- Magnetic switches: the travel model rests on two switches (Space and Fn). Other switch models
+  could rest outside 1000 to 3300 counts or travel less than 400, and then they never type.
 - Sleep: stock's timed deep sleep is mapped (12.7), but the ERTC clock and prescaler, and whether
   the watchdog runs in deep sleep, are not known yet.
 - Radio state values other than 3 and 4, and frames 0x95 to 0x98 (12.8).
