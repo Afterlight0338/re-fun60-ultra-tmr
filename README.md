@@ -29,14 +29,22 @@ Two things started this:
 It turned into a full replacement firmware. It's still a work in progress, so read the
 [status list](#2-status) before you flash anything.
 
-Written 2026-09-30, firmware v0.11. Stock firmware analysed: v306 for board 2307.
+Written 2026-09-30, updated 2026-10-26 for firmware v0.12. Stock firmware analysed: v306 for board 2307.
 
-> **This firmware is for mechanical switches.** It treats every key as a plain switch, so the
-> stock magnetic switches probably won't work right. Tested on exactly one keyboard.
+> **This firmware was made for mechanical switches.** v0.12 adds basic magnetic switch support
+> (per-key actuation, learned the way stock does it) but nobody has typed on it with magnetic
+> switches yet. Tested on exactly one keyboard.
 
 ## -2. Changelog
 
 Newest first. Small wording fixes are not listed.
+
+**2026-10-26**
+
+* Firmware v0.12: basic magnetic switch support, not tested on the keyboard yet. Each key learns
+  where it rests and how deep it goes, like stock does, and presses at a percent of that travel
+  (50 % by default, released under 35 %). Mechanical and magnetic switches can be mixed. The web
+  driver's thresholds are percents now (protocol v5). Saved settings reset to defaults once.
 
 **2026-10-25**
 
@@ -152,12 +160,16 @@ Working, tested on my board:
 - stock's indicator lights: the mode key blinks or stays lit, battery level on Esc
   (Fn + Space), charging, low battery, Caps Lock, Win lock (Fn + Win)
 - battery level and charging state
-- settings saved on the keyboard: keymap, lighting, debounce, thresholds
+- settings saved on the keyboard: keymap, lighting, debounce, actuation
 - FUN60 Studio, a web driver: remap, lighting, performance, save and restore, a double-press tester
 - recovery without opening the case (hold Esc while plugging in), plus a watchdog failsafe
 
 Built, not tested yet:
 
+- magnetic switches (v0.12): each key learns its rest and bottom like stock (bottom starts
+  400 counts under rest), presses at a percent of that travel. Holding Esc while plugging in
+  still uses mechanical thresholds, so with a magnetic Esc it may not reach the bootloader; the
+  watchdog failsafe still does.
 - Bluetooth 1 to 3 (Fn + E, R, T; hold 3 s to pair, it shows up as "FUN60 Ultra-1/2/3")
 
 Not done:
@@ -167,9 +179,8 @@ Not done:
 - the web driver over 2.4G (USB cable only for now)
 - Mac mode: the switch's top position is read but ignored
 - NKRO: 6 keys at once, like a boot keyboard
-- magnetic switch features: rapid trigger, per-key actuation, calibration. The firmware treats
-  every key as a plain switch with one threshold tuned for mechanical switches, so the stock
-  magnetic switches probably won't work right.
+- magnetic switch extras: rapid trigger, a different actuation per key, calibration that
+  survives a power cycle, stock's travel-to-millimetre curve (actuation is a percent, not mm)
 - the MonsGeek app will not work with this firmware, and that's not planned
 
 ## 3. The double typing
