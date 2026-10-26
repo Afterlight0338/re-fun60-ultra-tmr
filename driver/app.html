@@ -171,6 +171,8 @@ code { font: 12px var(--mono); background: var(--raised); border: 1px solid var(
 .key.tested .cap { border-color: var(--live); }
 .key.tested .cap::before { background: color-mix(in srgb, var(--live) 14%, var(--cap-top)); }
 .key.over .cap { border-color: var(--warn); }
+.key.custom .cap { border-style: dashed; border-color: var(--fn); }
+.key.rt .lg::after { content: " RT"; color: var(--fn); font-size: .75em; }
 .wide { grid-column: 1 / -1; }
 .modes { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
 .mode { border: 1px solid var(--line); background: var(--raised); border-radius: 10px; padding: 10px 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-weight: 500; }
@@ -293,7 +295,12 @@ const BASE_DEFAULT = new Uint8Array(SITES), FN_DEFAULT = new Uint8Array(SITES);
   .forEach(([s, c]) => { FN_DEFAULT[s] = c; });
 for (let i = 1; i <= 12; i++) FN_DEFAULT[KEYS[i].site] = 0x3A + i - 1;
 
-const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressPct: 50, releasePct: 35 };
+const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressPct: 50, releasePct: 35, topDz: 0, bottomDz: 0, rtCont: 0 };
+/* per-key values (protocol v6, fw v0.13): actuation % (0 = global), rapid trigger down / up % (0 = off / same as down) */
+const KC_FIELDS = ["act", "rtDown", "rtUp"];
+const newKc = () => ({ act: new Uint8Array(SITES), rtDown: new Uint8Array(SITES), rtUp: new Uint8Array(SITES) });
+const copyKc = k => ({ act: k.act.slice(), rtDown: k.rtDown.slice(), rtUp: k.rtUp.slice() });
+const eqKc = (a, b) => KC_FIELDS.every(f => a[f].every((v, i) => v === b[f][i]));
 const LEVELS = [16, 40, 80, 140, 255];
 const EFFECTS = ["Static", "Breathe", "Rainbow"];
 const LED_BUDGET_MA = 300;
@@ -302,7 +309,8 @@ const LED_BUDGET_MA = 300;
  * 64-byte feature reports on the vendor interface (usage page 0xFFFF), no report ID. Request
  * bytes 0..7 sum to 0xFF; opcode in byte 0, arguments in 1..6, payload from byte 8. The reply
  * comes back through GET_FEATURE with the opcode echoed in byte 0. */
-const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, SET_RADIO: 0xFA, ISP_PREPARE: 0xC5, BOOT: 0x7F };
+const OP = { INFO: 0x8F, RAW: 0xF0, STATE: 0xF1, GET_MAP: 0xF2, SET_MAP: 0xF3, GET_CFG: 0xF4, SET_CFG: 0xF5, SAVE: 0xF6, DEFAULTS: 0xF7, POWER: 0xF8, RADIO: 0xF9, SET_RADIO: 0xFA,
+  GET_KEYCFG: 0xFB, SET_KEYCFG: 0xFC, GET_TRAVEL: 0xFD, TRAVEL: 0xFE, ISP_PREPARE: 0xC5, BOOT: 0x7F };
 const MAP_PAGE = 56;
 
 class HidKeyboard {
@@ -316,7 +324,7 @@ class HidKeyboard {
       r[7] = (0xFF - s) & 0xFF;
       if (payload) r.set(payload.slice(0, 56), 8);
       await this.dev.sendFeatureReport(0, r);
-      if (op === OP.BOOT) return r;
+      if (op === OP.BOOT) return r;              /* it resets before answering */
       const v = await this.dev.receiveFeatureReport(0);
       let u = new Uint8Array(v.buffer, v.byteOffset, v.byteLength);
       if (u.length > 64 || (u[0] === 0 && u[1] === op)) u = u.subarray(1);
@@ -363,13 +371,48 @@ class HidKeyboard {
   async config() {
     const u = await this.request(OP.GET_CFG), d = u.subarray(8);
     this.legacy = st.info.proto < 5 ? Array.from(d.subarray(7, 11)) : null;
+    const v6 = st.info.proto >= 6;
     return { on: d[0], effect: d[1], level: d[2], r: d[3], g: d[4], b: d[5], debounce: d[6],
-             pressPct: this.legacy ? CONFIG_DEFAULT.pressPct : d[7], releasePct: this.legacy ? CONFIG_DEFAULT.releasePct : d[8] };
+             pressPct: this.legacy ? CONFIG_DEFAULT.pressPct : d[7], releasePct: this.legacy ? CONFIG_DEFAULT.releasePct : d[8],
+             topDz: v6 ? d[9] : 0, bottomDz: v6 ? d[10] : 0, rtCont: v6 ? d[11] : 0 };
   }
   async setConfig(c) {
     await this.request(OP.SET_CFG, [], [c.on, c.effect, c.level, c.r, c.g, c.b, c.debounce,
-      ...(this.legacy || [c.pressPct, c.releasePct])]);
+      ...(this.legacy || [c.pressPct, c.releasePct, c.topDz, c.bottomDz, c.rtCont])]);
   }
+  /* protocol v6: per-key actuation and rapid trigger, pages of 56 sites like the keymap */
+  async keycfg() {
+    const k = newKc();
+    for (let f = 0; f < KC_FIELDS.length; f++)
+      for (let p = 0; p * MAP_PAGE < SITES; p++) {
+        const u = await this.request(OP.GET_KEYCFG, [f, p]);
+        k[KC_FIELDS[f]].set(u.subarray(8, 8 + Math.min(MAP_PAGE, SITES - p * MAP_PAGE)), p * MAP_PAGE);
+      }
+    return k;
+  }
+  async setKeycfg(k) {
+    for (let f = 0; f < KC_FIELDS.length; f++)
+      for (let p = 0; p * MAP_PAGE < SITES; p++) {
+        const chunk = k[KC_FIELDS[f]].subarray(p * MAP_PAGE, Math.min(SITES, (p + 1) * MAP_PAGE));
+        await this.request(OP.SET_KEYCFG, [f, p, chunk.length], chunk);
+      }
+  }
+  /* the rest and bottom the keyboard itself uses, and which keys have saved travel */
+  async travelInfo() {
+    const rest = new Uint16Array(SITES), bottom = new Uint16Array(SITES);
+    let saved = false;
+    for (let p = 0; p * 14 < SITES; p++) {
+      const u = await this.request(OP.GET_TRAVEL, [p]);
+      saved ||= !!(u[3] & 1);
+      for (let i = 0; i < 14 && p * 14 + i < SITES; i++) {
+        rest[p * 14 + i] = u[8 + 4 * i] | u[9 + 4 * i] << 8; bottom[p * 14 + i] = u[10 + 4 * i] | u[11 + 4 * i] << 8;
+      }
+    }
+    return { rest, bottom, saved };
+  }
+  /* 1: store the travel seen since power-on (returns how many keys), 2: clear it, 3: relearn */
+  async travelCmd(cmd) { return (await this.request(OP.TRAVEL, [cmd]))[1]; }
+  async restart() { await this.request(OP.BOOT, [0x52, 0x45, 0x53, 0x54]); }
   async save() { const u = await this.request(OP.SAVE); if (u[1] !== 1) throw new Error("The keyboard could not write its settings to flash."); }
   async defaults() { await this.request(OP.DEFAULTS); }
   async radio() { const u = await this.request(OP.RADIO); return { mode: u[1], state: u[2], seen: !!u[5] }; }
@@ -383,14 +426,14 @@ class HidKeyboard {
 class DemoKeyboard {
   constructor() {
     this.demo = true; this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()];
-    this.cfg = { ...CONFIG_DEFAULT }; this.saved = null; this.down = new Set(); this.depth = new Float32Array(SITES);
+    this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); this.saved = null; this.down = new Set(); this.depth = new Float32Array(SITES);
     addEventListener("keydown", e => { const s = SITE_BY_CODE.get(e.code); if (s !== undefined) this.down.add(s); });
     addEventListener("keyup", e => { const s = SITE_BY_CODE.get(e.code); if (s !== undefined) this.down.delete(s); });
     addEventListener("blur", () => this.down.clear());
     this.save();
   }
   name() { return "FUN60 Ultra TMR (demo)"; }
-  async info() { return { devId: 2307, proto: 5, version: "0.12" }; }
+  async info() { return { devId: 2307, proto: 6, version: "0.13" }; }
   async radio() { return { mode: this.mode ?? 6, state: this.mode === 6 || this.mode === undefined ? 0 : 3, seen: true }; }
   async setRadio(mode) { this.mode = mode; }
   async power() { return { percent: 87, usb: true, charging: false, raw: 1560 }; }
@@ -408,8 +451,13 @@ class DemoKeyboard {
   async setKeymap(l) { this.map = [l[0].slice(), l[1].slice()]; }
   async config() { return { ...this.cfg }; }
   async setConfig(c) { this.cfg = { ...c }; }
-  async save() { this.saved = { map: [this.map[0].slice(), this.map[1].slice()], cfg: { ...this.cfg } }; }
-  async defaults() { this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; this.cfg = { ...CONFIG_DEFAULT }; }
+  async save() { this.saved = { map: [this.map[0].slice(), this.map[1].slice()], cfg: { ...this.cfg }, kc: copyKc(this.kc) }; }
+  async defaults() { this.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; this.cfg = { ...CONFIG_DEFAULT }; this.kc = newKc(); }
+  async keycfg() { return copyKc(this.kc); }
+  async setKeycfg(k) { this.kc = copyKc(k); }
+  async travelInfo() { return { rest: st.cal.rest.slice(), bottom: st.cal.rest.map((r, s) => Math.min(st.cal.bottom[s], Math.max(0, r - MIN_TRAVEL))), saved: false }; }
+  async travelCmd() { return 0; }
+  async restart() {}
   async bootloader() {}
 }
 
@@ -420,6 +468,7 @@ const demo = () => demoKb || (demoKb = new DemoKeyboard());
 const st = {
   page: "device", kb: null, info: null, layer: 0, cat: "Letters", query: "",
   map: [BASE_DEFAULT.slice(), FN_DEFAULT.slice()], cfg: { ...CONFIG_DEFAULT },
+  kc: newKc(), savedKc: null, fw: null,
   savedMap: null, savedCfg: null, sel: new Set(), pressed: new Set(), raw: null,
   tester: { presses: 0, doubles: 0, up: new Map(), down: new Map(), log: [] },
   tested: new Set(), pressSelect: false, focus: KEYS.find(k => k.code === "KeyW").site, trace: [],
@@ -430,15 +479,20 @@ const newCal = () => ({ rest: new Uint16Array(SITES), bottom: new Uint16Array(SI
 st.cal = newCal();
 
 /* travel in percent, the way the firmware works it out (fw/src/keys.c): rest = highest reading,
- * bottom = lowest but at least MIN_TRAVEL below rest. Learned here since this page connected, so
- * it can differ a little from the keyboard's own numbers (learned since it powered on). */
+ * bottom = lowest but at least MIN_TRAVEL below rest (or rest - saved travel), dead zones applied.
+ * Firmware v0.13 reports its own rest and bottom (st.fw); older ones are learned here since this
+ * page connected, so they can differ a little from the keyboard's (learned since it powered on). */
 const MIN_TRAVEL = 400, REST_MIN = 1000, REST_MAX = 3300;
 function travel(s) {
-  const v = st.raw[s], rest = st.cal.rest[s];
-  let bottom = st.cal.bottom[s];
+  const v = st.raw[s], fw = st.fw && !st.kb.demo, rest = Math.max(v, fw ? st.fw.rest[s] : st.cal.rest[s]);
+  let bottom = fw ? st.fw.bottom[s] : st.cal.bottom[s];
   if (bottom + MIN_TRAVEL > rest) bottom = Math.max(0, rest - MIN_TRAVEL);
-  return { v, rest, bottom, ok: rest >= REST_MIN && rest <= REST_MAX, pct: rest > bottom ? Math.max(0, Math.min(100, (rest - v) * 100 / (rest - bottom))) : 0 };
+  let pct = rest > bottom ? Math.max(0, Math.min(100, (rest - v) * 100 / (rest - bottom))) : 0;
+  if (pct <= st.cfg.topDz) pct = 0; else if (pct + st.cfg.bottomDz >= 100) pct = 100;
+  return { v, rest, bottom, ok: rest >= REST_MIN && rest <= REST_MAX, pct };
 }
+const actOf = s => st.kc.act[s] || st.cfg.pressPct;
+const releaseOf = press => { const gap = st.cfg.pressPct - st.cfg.releasePct; return press > gap ? press - gap : Math.floor(press / 2); };   /* keys.c */
 function learn(raw) {
   for (let s = 0; s < SITES; s++) { const v = raw[s]; if (v > st.cal.rest[s]) st.cal.rest[s] = v; if (v < st.cal.bottom[s]) st.cal.bottom[s] = v; }
 }
@@ -452,7 +506,8 @@ const theme = () => document.documentElement.dataset.theme || "auto";
 try { const t = localStorage.getItem(THEME_KEY); if (t) setTheme(t); } catch (e) { /* default */ }
 const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
-const isDirty = () => st.savedMap && (!eqMap(st.map, st.savedMap) || JSON.stringify(st.cfg) !== JSON.stringify(st.savedCfg));
+const isDirty = () => st.savedMap && (!eqMap(st.map, st.savedMap) || JSON.stringify(st.cfg) !== JSON.stringify(st.savedCfg) || !eqKc(st.kc, st.savedKc));
+const perKey = () => st.info && st.info.proto >= 6;
 const eqMap = (a, b) => a.every((l, i) => l.every((c, j) => c === b[i][j]));
 const MODES = { 0: "Bluetooth 1", 1: "Bluetooth 2", 2: "Bluetooth 3", 5: "2.4G", 6: "USB" };
 const radioText = () => {
@@ -479,10 +534,11 @@ async function attach(kb) {
       throw new Error(`The keyboard runs firmware v${v}, which doesn't have the FUN60 Studio protocol. Flash open firmware v0.05 or newer with ry-flash, then connect again. Showing the demo until then.`);
     }
     st.map = await kb.keymap(); st.cfg = await kb.config();
+    st.kc = perKey() ? await kb.keycfg() : newKc(); st.fw = null;
   } catch (e) {
-    st.error = e.message; st.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; st.cfg = { ...CONFIG_DEFAULT };
+    st.error = e.message; st.map = [BASE_DEFAULT.slice(), FN_DEFAULT.slice()]; st.cfg = { ...CONFIG_DEFAULT }; st.kc = newKc();
   }
-  st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg };
+  st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc);
   render();
 }
 
@@ -496,7 +552,12 @@ async function connect() {
 }
 
 async function push(what) {           /* live preview: lighting and performance apply at once */
-  try { if (what === "cfg") await st.kb.setConfig(st.cfg); else await st.kb.setKeymap(st.map); st.error = ""; }
+  try {
+    if (what === "cfg") await st.kb.setConfig(st.cfg);
+    else if (what === "kc") { if (perKey()) await st.kb.setKeycfg(st.kc); }
+    else await st.kb.setKeymap(st.map);
+    st.error = "";
+  }
   catch (e) { st.error = e.message; }
   renderTop();
 }
@@ -528,7 +589,7 @@ function buildBoard() {
   const box = document.createElement("div"); box.className = "box"; box.hidden = true; board.append(box);
   const local = e => { const r = board.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   board.addEventListener("pointerdown", e => {
-    if (st.page !== "keys" || e.button !== 0) return;
+    if ((st.page !== "keys" && st.page !== "travel") || e.button !== 0) return;
     drag = { at: local(e), add: e.shiftKey || e.ctrlKey || e.metaKey, moved: false };
     board.setPointerCapture(e.pointerId);
   });
@@ -552,6 +613,7 @@ function buildBoard() {
     } else {
       const el = document.elementFromPoint(e.clientX, e.clientY)?.closest(".key"); if (!el) return;
       const s = +el.dataset.site;
+      if (st.page === "travel") { st.focus = s; st.trace = []; }
       if (d.add) st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s);
       else { const only = st.sel.size === 1 && st.sel.has(s); st.sel.clear(); if (!only) st.sel.add(s); }
     }
@@ -560,8 +622,10 @@ function buildBoard() {
   board.addEventListener("click", e => {
     const el = e.target.closest(".key"); if (!el) return;
     const s = +el.dataset.site;
-    if (st.page === "travel") { st.focus = s; st.trace = []; render(); }
-    else if (st.page === "keys" && e.detail === 0) { st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s); render(); }   /* Enter / Space */
+    if ((st.page === "keys" || st.page === "travel") && e.detail === 0) {   /* Enter / Space */
+      if (st.page === "travel") { st.focus = s; st.trace = []; }
+      st.sel.has(s) ? st.sel.delete(s) : st.sel.add(s); render();
+    }
   });
   const fit = () => { const w = $("board-wrap").clientWidth; board.style.setProperty("--u", Math.max(20, Math.min(62, Math.floor(w / 15.6))) + "px"); };
   new ResizeObserver(fit).observe($("board-wrap")); fit();
@@ -581,14 +645,15 @@ function renderBoard() {
     if (perf) lg2.textContent = "";                  /* the live loop writes the travel percent */
     lg2.style.color = perf ? "var(--muted)" : "";
     bar.hidden = !perf;
-    el.className = "key " + cls + ((remap && st.sel.has(s)) || (perf && st.focus === s) ? " sel" : "") +
+    if (perf) cls += (st.kc.act[s] || st.kc.rtDown[s] ? " custom" : "") + (st.kc.rtDown[s] ? " rt" : "");
+    el.className = "key " + cls + ((remap || perf) && st.sel.has(s) ? " sel" : "") +
       (st.pressed.has(s) ? " live" : "") + (test && st.tested.has(s) ? " tested" : "");
     el.setAttribute("aria-label", `${kcShort(base)}${fn ? ", Fn: " + kcShort(fn) : ""}`);
-    el.setAttribute("aria-pressed", remap ? String(st.sel.has(s)) : perf ? String(st.focus === s) : "false");
+    el.setAttribute("aria-pressed", remap || perf ? String(st.sel.has(s)) : "false");
   });
   const legend = { keys: [["var(--accent)", "Selected"], ["var(--fn)", "Fn layer"], ["var(--faint)", "Same as base"]],
                    device: [["var(--live)", "Pressed now"], ["var(--fn)", "Fn layer"]],
-                   travel: [["var(--live)", "Travel now"], ["var(--accent)", "Shown in the graph"], ["var(--warn)", "Past the press point"]],
+                   travel: [["var(--live)", "Travel now"], ["var(--accent)", "Selected"], ["var(--fn)", "Own settings (RT = rapid trigger)"], ["var(--warn)", "Past its press point"]],
                    test: [["var(--live)", "Pressed at least once"]], lighting: [], firmware: [], settings: [] }[st.page];
   $("board-legend").innerHTML = legend.map(([c, t]) => `<span style="--c:${c}">${t}</span>`).join("");
 }
@@ -669,7 +734,7 @@ async function flashFirmware() {
     /* 1. a running open firmware: keep its settings (flashing erases them), then into the bootloader */
     if (st.kb && !st.kb.demo) {
       if (st.info.devId !== 2307) throw new Error(`This is board ${st.info.devId}, not a FUN60 Ultra TMR (2307). Not flashing it.`);
-      f.backup = { map: [st.map[0].slice(), st.map[1].slice()], cfg: { ...st.cfg } };
+      f.backup = { map: [st.map[0].slice(), st.map[1].slice()], cfg: { ...st.cfg }, kc: copyKc(st.kc) };
       flashSet({ phase: "boot", msg: "Restarting the keyboard into its bootloader..." });
       await st.kb.request(OP.ISP_PREPARE, [0x3A]);
       await sleep(100);
@@ -727,6 +792,7 @@ async function restoreBackup() {
   try {
     st.map = [b.map[0].slice(), b.map[1].slice()];
     st.cfg = { ...st.cfg, ...b.cfg, pressPct: b.cfg.pressPct ?? st.cfg.pressPct, releasePct: b.cfg.releasePct ?? st.cfg.releasePct };
+    if (b.kc) st.kc = copyKc(b.kc);
     await save();
     flashSet({ restored: true, msg: st.error ? st.error : "Your keymap and settings are back and saved on the keyboard." });
   } catch (e) { flashSet({ msg: e.message }); }
@@ -836,7 +902,12 @@ const PAGES = {
   },
 
   travel() {
-    const c = st.cfg, old = st.info && st.info.proto < 5, k = KEY_BY_SITE.get(st.focus);
+    const c = st.cfg, old = st.info && st.info.proto < 5, v6 = perKey(), k = KEY_BY_SITE.get(st.focus);
+    const sel = [...st.sel].filter(x => KEY_BY_SITE.has(x)), one = sel[0];
+    const same = f => sel.every(x => st.kc[f][x] === st.kc[f][one]) ? st.kc[f][one] : null;
+    const act = sel.length ? same("act") : null, down = sel.length ? same("rtDown") : null, up = sel.length ? same("rtUp") : null;
+    const range = (id, min, max, val, label) => `<label class="field" for="${id}"><span>${label} <b>${val} %</b></span>
+          <input type="range" id="${id}" min="${min}" max="${max}" step="1" value="${val}" ${sel.length ? "" : "disabled"}></label>`;
     return `<div class="cols">
       <div class="card">
         <div class="eyebrow">All keys</div>
@@ -846,25 +917,54 @@ const PAGES = {
           <input type="range" id="th-press" min="10" max="95" step="1" value="${c.pressPct}"></label>
         <label class="field" for="th-release"><span>Release under <b>${c.releasePct} %</b></span>
           <input type="range" id="th-release" min="5" max="90" step="1" value="${c.releasePct}"></label>
-        <p>Percent of each key's travel. Every key learns its own: the top is where it rests, the bottom is the deepest it has gone (at least 400 counts below the top until you bottom it out once). Mechanical switches jump straight from 0 to 100 %, so this matters for magnetic ones. The keyboard forgets the learned travel when it powers off; press each key down fully once after plugging in.</p>`}
+        <p>Percent of each key's travel. Mechanical switches jump straight from 0 to 100 %, so this matters for magnetic ones.${v6 ? " A key with its own actuation point keeps the same gap between press and release." : ""}</p>`}
+        ${v6 ? `
+        <label class="field" for="dz-top"><span>Top dead zone <b>${c.topDz} %</b></span>
+          <input type="range" id="dz-top" min="0" max="30" step="1" value="${c.topDz}"></label>
+        <label class="field" for="dz-bottom"><span>Bottom dead zone <b>${c.bottomDz} %</b></span>
+          <input type="range" id="dz-bottom" min="0" max="30" step="1" value="${c.bottomDz}"></label>
+        <p class="note">Travel in the top dead zone reads 0 %, in the bottom one 100 %, so a resting or bottomed-out key can't wobble across a threshold.</p>` : ""}
       </div>
+      ${v6 ? `<div class="card">
+        <div class="eyebrow">Selected keys</div>
+        <h2>${sel.length ? `${sel.length} key${sel.length > 1 ? "s" : ""}: ${esc(sel.slice(0, 8).map(x => kcShort(st.map[0][x])).join(", "))}${sel.length > 8 ? "..." : ""}` : "Per key"}</h2>
+        <p class="muted">${sel.length ? "Changes apply at once; Save to keyboard keeps them." : "Click keys on the board above, Shift-click to add, or drag a box. Then give them their own actuation point or rapid trigger."}</p>
+        <label class="toggle"><input type="checkbox" id="pk-own" ${act ? "checked" : ""} ${sel.length ? "" : "disabled"}> Own actuation point</label>
+        ${act ? range("pk-act", 5, 100, act, "Press at") : ""}
+        <label class="toggle"><input type="checkbox" id="pk-rt" ${down ? "checked" : ""} ${sel.length ? "" : "disabled"}> Rapid trigger</label>
+        ${down ? range("pk-down", 1, 50, down, "Press again after going down") + range("pk-up", 1, 50, up || down, "Release after coming up") + `
+        <label class="toggle"><input type="checkbox" id="rt-cont" ${c.rtCont ? "checked" : ""}> Continuous (all keys): stays live up to the top dead zone, not just below the release point</label>` : ""}
+        <p class="note">Rapid trigger: after the first press, the key releases as soon as it comes up by the release amount and presses again when it goes down by the press amount, wherever it is. It skips the release hold-off. Meant for magnetic switches.</p>
+        <div class="row"><button class="btn" id="pk-clear" ${sel.length && (act || down) ? "" : "disabled"}>Back to the global setting</button>
+          <button class="btn" id="sel-none" ${sel.length ? "" : "disabled"}>Clear selection</button></div>
+      </div>` : ""}
       <div class="card">
         <div class="eyebrow">Double-press fix</div>
         <h2>Release hold-off</h2>
         <label class="field" for="db"><span>Hold-off <b>${c.debounce} ms</b></span>
           <input type="range" id="db" min="0" max="20" step="1" value="${c.debounce}"></label>
-        <p>A press registers at once. A release only counts once the key has stayed up this long, so a bouncing contact can't send a second press. 8 ms gave 0 doubles in 120 hard taps on mechanical switches; magnetic switches don't bounce, so 0 is fine for them.</p>
+        <p>A press registers at once. A release only counts once the key has stayed up this long, so a bouncing contact can't send a second press. 8 ms gave 0 doubles in 120 hard taps on mechanical switches${v6 ? "; keys with rapid trigger skip it" : "; magnetic switches don't bounce, so 0 is fine for them"}.</p>
       </div>
+      ${v6 ? `<div class="card">
+        <div class="eyebrow">Calibration</div>
+        <h2>Saved travel</h2>
+        <p>Each key learns its rest position whenever the keyboard powers on. Its bottom only shows once it has been pressed all the way. Press every magnetic key fully down once, then store it, so the travel is right from the first press after every restart.</p>
+        <p class="muted" id="cal-state">${st.fw ? (st.fw.saved ? "Some keys have saved travel." : "No saved travel yet.") : ""}${st.calMsg ? " " + esc(st.calMsg) : ""}</p>
+        <div class="row"><button class="btn primary" id="cal-store">Store and save</button>
+          <button class="btn" id="cal-clear">Clear saved travel</button>
+          <button class="btn" id="cal-relearn">Relearn now</button></div>
+        <p class="note">Store and save also saves everything else on this page. Relearn forgets what the keyboard learned since power-on; keys held at that moment read 0 % until released.</p>
+      </div>` : ""}
       <div class="card wide">
-        <div class="row" style="justify-content:space-between"><div><div class="eyebrow">Live, click a key above to pick it</div><h2>${esc(kcShort(st.map[0][st.focus]))} travel</h2></div>
+        <div class="row" style="justify-content:space-between"><div><div class="eyebrow">Live, the last key clicked</div><h2>${esc(kcShort(st.map[0][st.focus]))} travel</h2></div>
           <span class="mono muted" id="tv-nums">-</span></div>
         <div class="travel">
           <div class="shaft" aria-hidden="true"><div class="fill" id="tv-fill" style="height:0"></div>
-            ${old ? "" : pctMark(c.pressPct, "var(--warn)", "press") + pctMark(c.releasePct, "var(--live)", "release")}</div>
+            ${old ? "" : pctMark(actOf(st.focus), "var(--warn)", "press") + pctMark(releaseOf(actOf(st.focus)), "var(--live)", "release")}</div>
           <canvas class="trace" id="tv-trace" aria-label="Travel over the last few seconds"></canvas>
         </div>
-        <p class="note">Raw is the sensor reading (12-bit ADC counts); it falls as the key goes down. This page learns rest and bottom from what it has seen since connecting, the same way the keyboard does.${k ? "" : " This key isn't on the layout."}</p>
-        <div class="row"><button class="btn" id="tv-relearn">Forget learned travel (this page)</button></div>
+        <p class="note">Raw is the sensor reading (12-bit ADC counts); it falls as the key goes down. ${v6 ? "Rest and bottom are the keyboard's own." : "This page learns rest and bottom from what it has seen since connecting, the same way the keyboard does."}${k ? "" : " This key isn't on the layout."}</p>
+        ${v6 ? "" : `<div class="row"><button class="btn" id="tv-relearn">Forget learned travel (this page)</button></div>`}
       </div>
     </div>`;
   },
@@ -965,7 +1065,7 @@ const PAGES = {
         <div class="row"><button class="btn danger" id="fl-go" ${f.image && f.agree && !busy && "hid" in navigator ? "" : "disabled"}>Flash ${f.image ? esc(f.name) : ""}</button></div>
         ${f.msg ? `<p style="color:${f.phase === "error" ? "var(--bad)" : f.phase === "done" ? "var(--live)" : "var(--text)"}">${esc(f.msg)}</p>` : ""}
         ${flow}
-        ${f.phase === "done" && f.backup && !f.restored ? `<div class="row"><button class="btn primary" id="fl-restore">Put my settings back</button><span class="note">keymap, lighting, actuation and hold-off from before the flash</span></div>` : ""}
+        ${f.phase === "done" && f.backup && !f.restored ? `<div class="row"><button class="btn primary" id="fl-restore">Put my settings back</button><span class="note">keymap, lighting, actuation, rapid trigger and hold-off from before the flash</span></div>` : ""}
       </div>
       <div class="card">
         <div class="eyebrow">Manual</div>
@@ -1039,12 +1139,30 @@ const BIND = {
     });
   },
   travel(p) {
-    const bindRange = (id, key, unit, check) => { const r = p.querySelector("#" + id); r.oninput = () => {
-      st.cfg[key] = +r.value; check && check(); r.previousElementSibling.querySelector("b").textContent = `${st.cfg[key]} ${unit}`; push("cfg"); }; };
+    const bindRange = (id, key, unit, check) => { const r = p.querySelector("#" + id); if (!r) return; r.oninput = () => {
+      st.cfg[key] = +r.value; check && check(); r.previousElementSibling.querySelector("b").textContent = `${st.cfg[key]} ${unit}`; push("cfg"); renderTop(); }; };
     const gap = () => { if (st.cfg.releasePct > st.cfg.pressPct - 5) st.cfg.releasePct = Math.max(5, st.cfg.pressPct - 5); renderPanel(); };
     bindRange("db", "debounce", "ms");
     if (p.querySelector("#th-press")) { bindRange("th-press", "pressPct", "%", gap); bindRange("th-release", "releasePct", "%", gap); }
-    p.querySelector("#tv-relearn").onclick = () => { st.cal = newCal(); st.trace = []; };
+    bindRange("dz-top", "topDz", "%"); bindRange("dz-bottom", "bottomDz", "%");
+    const sel = () => [...st.sel].filter(x => KEY_BY_SITE.has(x));
+    const setKc = (f, v) => { sel().forEach(x => { st.kc[f][x] = v; }); push("kc"); renderTop(); renderBoard(); };
+    const live = (id, f) => { const r = p.querySelector("#" + id); if (r) r.oninput = () => { setKc(f, +r.value); r.previousElementSibling.querySelector("b").textContent = `${r.value} %`; }; };
+    live("pk-act", "act"); live("pk-down", "rtDown"); live("pk-up", "rtUp");
+    const own = p.querySelector("#pk-own"); if (own) own.onchange = () => { setKc("act", own.checked ? st.cfg.pressPct : 0); renderPanel(); };
+    const rt = p.querySelector("#pk-rt"); if (rt) rt.onchange = () => { setKc("rtDown", rt.checked ? 10 : 0); setKc("rtUp", 0); renderPanel(); };
+    const cont = p.querySelector("#rt-cont"); if (cont) cont.onchange = () => { st.cfg.rtCont = cont.checked ? 1 : 0; push("cfg"); renderTop(); };
+    p.querySelector("#pk-clear")?.addEventListener("click", () => { KC_FIELDS.forEach(f => setKc(f, 0)); renderPanel(); });
+    p.querySelector("#sel-none")?.addEventListener("click", () => { st.sel.clear(); render(); });
+    const cal = async (cmd, then) => {
+      try { const n = await st.kb.travelCmd(cmd); st.calMsg = then(n); if (cmd !== 3) await save(); st.fw = await st.kb.travelInfo(); }
+      catch (e) { st.error = e.message; }
+      render();
+    };
+    p.querySelector("#cal-store")?.addEventListener("click", () => cal(1, n => n ? `Stored the travel of ${n} key${n > 1 ? "s" : ""}.` : "No key has been pressed all the way down since power-on, so nothing was stored."));
+    p.querySelector("#cal-clear")?.addEventListener("click", () => cal(2, () => "Saved travel cleared."));
+    p.querySelector("#cal-relearn")?.addEventListener("click", () => cal(3, () => "Learning again from now."));
+    p.querySelector("#tv-relearn")?.addEventListener("click", () => { st.cal = newCal(); st.trace = []; });
   },
   lighting(p) {
     const set = (k, v) => { st.cfg[k] = v; push("cfg"); };
@@ -1071,10 +1189,13 @@ const BIND = {
   },
   settings(p) {
     p.querySelector("#save2").onclick = save;
-    p.querySelector("#defaults").onclick = async () => { await st.kb.defaults(); st.map = await st.kb.keymap(); st.cfg = await st.kb.config(); render(); };
+    p.querySelector("#defaults").onclick = async () => {
+      await st.kb.defaults(); st.map = await st.kb.keymap(); st.cfg = await st.kb.config(); if (perKey()) st.kc = await st.kb.keycfg(); render();
+    };
     p.querySelector("#export").onclick = () => {
       const named = l => Object.fromEntries(KEYS.map(k => [k.code, kcShort(st.map[l][k.site])]));
-      st.exportText = JSON.stringify({ format: "fun60-studio/1", base: [...st.map[0]], fn: [...st.map[1]], config: st.cfg, readable: { base: named(0), fn: named(1) } }, null, 1);
+      st.exportText = JSON.stringify({ format: "fun60-studio/1", base: [...st.map[0]], fn: [...st.map[1]], config: st.cfg,
+        perKey: Object.fromEntries(KC_FIELDS.map(f => [f, [...st.kc[f]]])), readable: { base: named(0), fn: named(1) } }, null, 1);
       renderPanel();
     };
     p.querySelector("#download").onclick = () => {
@@ -1089,8 +1210,9 @@ const BIND = {
         const d = JSON.parse($("backup").value);
         if (d.format !== "fun60-studio/1" || d.base.length !== SITES) throw new Error("That isn't a FUN60 Studio backup.");
         st.map = [Uint8Array.from(d.base), Uint8Array.from(d.fn)]; st.cfg = { ...CONFIG_DEFAULT, ...d.config };
+        if (d.perKey) KC_FIELDS.forEach(f => { if (d.perKey[f] && d.perKey[f].length === SITES) st.kc[f] = Uint8Array.from(d.perKey[f]); });
         st.exportText = $("backup").value; st.error = "";
-        push("map").then(() => push("cfg")); render();
+        push("map").then(() => push("cfg")).then(() => push("kc")); render();
       } catch (e) { st.error = e.message; render(); }
     };
     p.querySelectorAll("[data-theme-pick]").forEach(b => b.onclick = () => { setTheme(b.dataset.themePick); renderPanel(); });
@@ -1099,14 +1221,15 @@ const BIND = {
 
 async function save() {
   try {
-    await st.kb.setKeymap(st.map); await st.kb.setConfig(st.cfg); await st.kb.save();
-    st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.error = "";
+    await st.kb.setKeymap(st.map); await st.kb.setConfig(st.cfg); if (perKey()) await st.kb.setKeycfg(st.kc);
+    await st.kb.save();
+    st.savedMap = [st.map[0].slice(), st.map[1].slice()]; st.savedCfg = { ...st.cfg }; st.savedKc = copyKc(st.kc); st.error = "";
   } catch (e) { st.error = e.message; }
   render();
 }
 async function revert() {
-  st.map = [st.savedMap[0].slice(), st.savedMap[1].slice()]; st.cfg = { ...st.savedCfg };
-  await push("map"); await push("cfg"); render();
+  st.map = [st.savedMap[0].slice(), st.savedMap[1].slice()]; st.cfg = { ...st.savedCfg }; st.kc = copyKc(st.savedKc);
+  await push("map"); await push("cfg"); await push("kc"); render();
 }
 
 /* ---------- key tester (browser key events, so it measures what the computer receives) ---------- */
@@ -1149,7 +1272,8 @@ function drawTrace(now) {
   const g = cv.getContext("2d"), css = getComputedStyle(document.documentElement), col = n => css.getPropertyValue(n).trim();
   g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
   const y = pct => 6 + (h - 12) * pct / 100;
-  if (!(st.info && st.info.proto < 5)) for (const [pct, c] of [[st.cfg.pressPct, "--warn"], [st.cfg.releasePct, "--live"]]) {
+  const pressAt = actOf(st.focus), releaseAt = releaseOf(pressAt);
+  if (!(st.info && st.info.proto < 5)) for (const [pct, c] of [[pressAt, "--warn"], [releaseAt, "--live"]]) {
     g.strokeStyle = col(c); g.setLineDash([4, 4]); g.beginPath(); g.moveTo(0, y(pct)); g.lineTo(w, y(pct)); g.stroke();
   }
   g.setLineDash([]); g.strokeStyle = col("--accent"); g.lineWidth = 2; g.beginPath();
@@ -1162,7 +1286,10 @@ async function tick(t) {
   if (st.kb && !polling && !st.pollFailed) {
     polling = true;
     try {
-      if (st.page === "travel") { st.raw = await st.kb.raw(); learn(st.raw); }
+      if (st.page === "travel") {
+        st.raw = await st.kb.raw(); learn(st.raw);
+        if (perKey() && !(t - st.fwAt < 500)) { st.fwAt = t; st.fw = await st.kb.travelInfo(); }
+      }
       const s = await st.kb.state(); st.pressed = s.pressed;
       if (st.info && st.info.proto >= 2 && !(t - st.powerAt < 2000)) {         /* v0.06+: GET_POWER */
         st.powerAt = t; st.power = await st.kb.power();
@@ -1201,14 +1328,14 @@ async function tick(t) {
       const tv = travel(s);
       el.querySelector(".bar").style.setProperty("--d", (tv.pct / 100).toFixed(3));
       el.querySelector(".lg2").textContent = tv.ok ? Math.round(tv.pct) + "%" : "-";
-      el.classList.toggle("over", tv.ok && tv.pct >= st.cfg.pressPct);
+      el.classList.toggle("over", tv.ok && tv.pct >= actOf(s));
     } else el.classList.remove("over");
   });
   if (perf && $("tv-fill")) {
     const tv = travel(st.focus);
     st.trace.push([t, tv.pct]); while (st.trace.length && t - st.trace[0][0] > TRACE_MS) st.trace.shift();
     $("tv-fill").style.height = tv.pct + "%";
-    $("tv-nums").textContent = tv.ok ? `raw ${tv.v}  rest ${tv.rest}  bottom ${tv.bottom}  ${tv.pct.toFixed(0)} %` : `raw ${tv.v}, no switch read here yet`;
+    $("tv-nums").textContent = tv.ok ? `raw ${tv.v}  rest ${tv.rest}  bottom ${tv.bottom}  ${tv.pct.toFixed(0)} %` : `raw ${tv.v}, rest outside ${REST_MIN}-${REST_MAX}: not read as a key`;
     drawTrace(t);
   }
   if (led && $("ma")) { $("ma").textContent = `${Math.round(led.ma)} mA`; $("ma-bar").style.width = (100 * led.ma / LED_BUDGET_MA) + "%"; }
