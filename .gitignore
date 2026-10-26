@@ -5,7 +5,8 @@ __pycache__/
 # Artery's BSP, fetched by `make -C fw vendor`
 fw/vendor/
 # written by driver/serve.sh
-driver/index.html
+driver/site/
+.wrangler/
 
 # MonsGeek's stock firmware: not ours to publish, `ry-flash --fetch 2307` downloads it
 stock/
