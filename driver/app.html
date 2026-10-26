@@ -263,7 +263,7 @@ const BASE_DEFAULT = new Uint8Array(SITES), FN_DEFAULT = new Uint8Array(SITES);
   .forEach(([s, c]) => { FN_DEFAULT[s] = c; });
 for (let i = 1; i <= 12; i++) FN_DEFAULT[KEYS[i].site] = 0x3A + i - 1;
 
-const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressBelow: 700, releaseAbove: 1000 };
+const CONFIG_DEFAULT = { on: 1, effect: 2, level: 2, r: 255, g: 255, b: 255, debounce: 8, pressPct: 50, releasePct: 35 };
 const LEVELS = [16, 40, 80, 140, 255];
 const EFFECTS = ["Static", "Breathe", "Rainbow"];
 const LED_BUDGET_MA = 300;
@@ -328,14 +328,17 @@ class HidKeyboard {
         await this.request(OP.SET_MAP, [l, p, chunk.length], chunk);
       }
   }
+  /* protocol v5 (fw v0.12): thresholds are percent of travel; older firmware keeps its ADC
+   * counts, which are sent back unchanged */
   async config() {
     const u = await this.request(OP.GET_CFG), d = u.subarray(8);
+    this.legacy = st.info.proto < 5 ? Array.from(d.subarray(7, 11)) : null;
     return { on: d[0], effect: d[1], level: d[2], r: d[3], g: d[4], b: d[5], debounce: d[6],
-             pressBelow: d[7] | d[8] << 8, releaseAbove: d[9] | d[10] << 8 };
+             pressPct: this.legacy ? CONFIG_DEFAULT.pressPct : d[7], releasePct: this.legacy ? CONFIG_DEFAULT.releasePct : d[8] };
   }
   async setConfig(c) {
     await this.request(OP.SET_CFG, [], [c.on, c.effect, c.level, c.r, c.g, c.b, c.debounce,
-      c.pressBelow & 255, c.pressBelow >> 8, c.releaseAbove & 255, c.releaseAbove >> 8]);
+      ...(this.legacy || [c.pressPct, c.releasePct])]);
   }
   async save() { const u = await this.request(OP.SAVE); if (u[1] !== 1) throw new Error("The keyboard could not write its settings to flash."); }
   async defaults() { await this.request(OP.DEFAULTS); }
@@ -355,7 +358,7 @@ class DemoKeyboard {
     this.save();
   }
   name() { return "FUN60 Ultra TMR (demo)"; }
-  async info() { return { devId: 2307, proto: 3, version: "0.07" }; }
+  async info() { return { devId: 2307, proto: 5, version: "0.12" }; }
   async radio() { return { mode: 6, state: 0, seen: true }; }
   async power() { return { percent: 87, usb: true, charging: false, raw: 1560 }; }
   async state() { return { pressed: new Set(this.down), fn: false }; }
@@ -603,12 +606,13 @@ const PAGES = {
       </div>
       <div class="card">
         <div class="eyebrow">Switch sensing</div>
-        <h2>Thresholds</h2>
-        <label class="field" for="th-press"><span>Pressed below <b>${c.pressBelow} counts</b></span>
-          <input type="range" id="th-press" min="200" max="1300" step="10" value="${c.pressBelow}"></label>
-        <label class="field" for="th-release"><span>Released above <b>${c.releaseAbove} counts</b></span>
-          <input type="range" id="th-release" min="300" max="1400" step="10" value="${c.releaseAbove}"></label>
-        <p>Mechanical switches pull their sensor from about 1600 counts to about 80 when they close. The gap between the two thresholds keeps a noisy reading from flickering.</p>
+        <h2>Actuation</h2>
+        ${st.info && st.info.proto < 5 ? `<p>Needs firmware v0.12. This one uses fixed thresholds for mechanical switches.</p>` : `
+        <label class="field" for="th-press"><span>Press at <b>${c.pressPct} %</b></span>
+          <input type="range" id="th-press" min="10" max="95" step="1" value="${c.pressPct}"></label>
+        <label class="field" for="th-release"><span>Release under <b>${c.releasePct} %</b></span>
+          <input type="range" id="th-release" min="5" max="90" step="1" value="${c.releasePct}"></label>
+        <p>Percent of each key's travel. Every key learns its own travel as you use it: the top is where it rests, the bottom is the deepest it has gone (at least 400 counts below the top until you bottom it out once). Works for magnetic and mechanical switches, mixed. Mechanical switches jump straight from 0 to 100 %, so this only matters for magnetic ones. The keyboard forgets the learned travel when it powers off; press each key down fully once after plugging in for the most accurate actuation.</p>`}
       </div>
     </div>`;
   },
@@ -670,10 +674,9 @@ const BIND = {
   performance(p) {
     const bindRange = (id, key, unit, check) => { const r = p.querySelector("#" + id); r.oninput = () => {
       st.cfg[key] = +r.value; check && check(); r.previousElementSibling.querySelector("b").textContent = `${st.cfg[key]} ${unit}`; push("cfg"); }; };
-    const gap = () => { if (st.cfg.releaseAbove < st.cfg.pressBelow + 100) { st.cfg.releaseAbove = st.cfg.pressBelow + 100; renderPanel(); } };
+    const gap = () => { if (st.cfg.releasePct > st.cfg.pressPct - 5) { st.cfg.releasePct = Math.max(5, st.cfg.pressPct - 5); renderPanel(); } };
     bindRange("db", "debounce", "ms");
-    bindRange("th-press", "pressBelow", "counts", gap);
-    bindRange("th-release", "releaseAbove", "counts", gap);
+    if (p.querySelector("#th-press")) { bindRange("th-press", "pressPct", "%", gap); bindRange("th-release", "releasePct", "%", gap); }
   },
   settings(p) {
     p.querySelector("#save2").onclick = save;
