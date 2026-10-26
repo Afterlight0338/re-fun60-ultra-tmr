@@ -44,6 +44,9 @@ Newest first. Small wording fixes are not listed.
 
 **2026-10-26**
 
+* FUN60 Studio: Firmware page with a version list (v0.11 stable, v0.12 experimental), downloads
+  for ry-flash, and an **experimental** browser flasher (a port of ry-flash; the command line
+  stays the recommended way). It keeps your settings and offers to put them back after a flash.
 * FUN60 Studio reworked after MonsGeek's own driver: Device, Keys, Travel, Lighting, Test and
   Settings pages; switch connection mode and pair from the page; box and press-to-select;
   live travel of every key. Hosted at https://driver.vivlos.dev.
@@ -72,6 +75,11 @@ driver. Both meant replacing the firmware, so that's what this is.
 
 Linux, as written. Flashing goes through the keyboard's own bootloader over USB, so there's no
 need to open the case. Everything below uses nix-shell; any Linux with the same tools works too.
+
+The command line below is the recommended way. There's also an **experimental** flasher in the
+web driver (https://driver.vivlos.dev, Firmware page) with a version list marked stable or
+experimental. It sends the same bytes as ry-flash, checked frame by frame, but it hasn't flashed a
+real keyboard yet. Its Download links give the same files for ry-flash.
 
 **0.1 Build.**
 
@@ -404,8 +412,8 @@ nix-shell -p python3 --run driver/serve.sh     # then open http://127.0.0.1:8060
 Pages: Device (battery, switching between USB, Bluetooth 1 to 3 and 2.4G, pairing), Keys
 (base and Fn layers; click, Shift-click, drag a box or press keys on the keyboard to select;
 swap, presets), Travel (actuation, live depth of every key, a travel graph for one key),
-Lighting, Test (press every key once, double-press tester) and Settings (save, backup, firmware,
-theme). Without a keyboard it runs a demo that your own keyboard drives.
+Lighting, Test (press every key once, double-press tester), Firmware (version list, downloads, an
+experimental browser flasher) and Settings (save, backup, theme). Without a keyboard it runs a demo that your own keyboard drives.
 
 It needs a Chromium-based browser (Chrome, Chromium, Brave) for WebHID, plus access to the
 keyboard's hidraw node. A udev rule does that:
