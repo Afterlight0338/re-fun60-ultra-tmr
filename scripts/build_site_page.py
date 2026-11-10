@@ -10,7 +10,7 @@ import html, pathlib, re, shutil, sys
 import markdown
 
 REPO = "https://github.com/Afterlight0338/re-fun60-ultra-tmr"
-STYLE_V, PAGE_V = 8, 2          # /style.css?v= (bump with the main site) and /s640/s640.css?v= (shared doc styles)
+STYLE_V, PAGE_V = 9, 2          # /style.css?v= (bump with the main site) and /s640/s640.css?v= (shared doc styles)
 root = pathlib.Path(__file__).resolve().parent.parent
 out = pathlib.Path(sys.argv[1])
 (out / "images").mkdir(parents=True, exist_ok=True)
@@ -90,7 +90,7 @@ page = f"""<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FUN60 Ultra TMR open firmware, vivlos.dev</title>
   <meta name="description" content="Replacement firmware and a web driver for the MonsGeek FUN60 Ultra TMR: no more double typing with mechanical switches, plus the brick and recovery on the way.">
-  <meta name="theme-color" content="#080b12">
+  <meta name="theme-color" content="#171a1c">
   <link rel="icon" type="image/webp" href="/assets/vivlos/casual.webp">
   <meta property="og:title" content="re-fun60-ultra-tmr: open firmware for the MonsGeek FUN60 Ultra TMR">
   <meta property="og:description" content="Stock FUN60 firmware reports contact bounce as key presses. New firmware, written from a decompile of stock, fixes it.">
