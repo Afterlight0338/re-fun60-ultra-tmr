@@ -95,6 +95,10 @@ page = f"""<!DOCTYPE html>
   <meta property="og:title" content="re-fun60-ultra-tmr: open firmware for the MonsGeek FUN60 Ultra TMR">
   <meta property="og:description" content="Stock FUN60 firmware reports contact bounce as key presses. New firmware, written from a decompile of stock, fixes it.">
   <meta property="og:url" content="https://vivlos.dev/fun60/">
+  <meta property="og:type" content="article">
+  <meta property="og:image" content="https://vivlos.dev/fun60/images/pcb-mcu-boot1.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://vivlos.dev/fun60/">
   <!-- Generated from README.md and docs/short.md by scripts/build_site_page.py in {REPO}.
        Edit the source there. Uses the main stylesheet's tokens, fonts and switch:
        bump ?v= together with index.html -->
